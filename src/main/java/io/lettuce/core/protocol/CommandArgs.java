@@ -505,14 +505,14 @@ public class CommandArgs<K, V> {
         }
 
         static void writeInteger(ByteBuf target, long value) {
-
+            //如果value小于10
             if (value < 10) {
                 target.writeByte((byte) ('0' + value));
                 return;
             }
-
+            //如果value大于或等于10
             String asString = Long.toString(value);
-
+            //遍历所有char
             for (int i = 0; i < asString.length(); i++) {
                 target.writeByte((byte) asString.charAt(i));
             }

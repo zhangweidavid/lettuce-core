@@ -49,6 +49,7 @@ class ConnectionEventTrigger extends ChannelInboundHandlerAdapter {
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         connectionEvents.fireEventRedisDisconnected(connection);
+        //发布通道断开事件
         eventBus.publish(new ConnectionDeactivatedEvent(local(ctx), remote(ctx)));
         super.channelInactive(ctx);
     }

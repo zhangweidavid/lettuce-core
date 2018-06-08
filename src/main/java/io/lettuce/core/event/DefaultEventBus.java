@@ -21,7 +21,7 @@ import reactor.core.scheduler.Scheduler;
 
 /**
  * Default implementation for an {@link EventBus}. Events are published using a {@link Scheduler}.
- *
+ * 默认的事件总线实现
  * @author Mark Paluch
  * @since 3.4
  */
@@ -31,6 +31,7 @@ public class DefaultEventBus implements EventBus {
     private final Scheduler scheduler;
 
     public DefaultEventBus(Scheduler scheduler) {
+        //创建主题处理器
         this.bus = TopicProcessor.create();
         this.scheduler = scheduler;
     }

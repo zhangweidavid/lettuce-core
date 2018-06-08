@@ -28,6 +28,7 @@ import io.lettuce.core.internal.LettuceAssert;
 public class ClientOptions implements Serializable {
 
     public static final boolean DEFAULT_PING_BEFORE_ACTIVATE_CONNECTION = false;
+    //自动重连接为true
     public static final boolean DEFAULT_AUTO_RECONNECT = true;
     public static final boolean DEFAULT_CANCEL_CMD_RECONNECT_FAIL = false;
     public static final boolean DEFAULT_SUSPEND_RECONNECT_PROTO_FAIL = false;

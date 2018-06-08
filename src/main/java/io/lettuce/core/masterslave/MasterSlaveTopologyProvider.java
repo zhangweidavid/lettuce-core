@@ -70,7 +70,7 @@ public class MasterSlaveTopologyProvider implements TopologyProvider {
     public List<RedisNodeDescription> getNodes() {
 
         logger.debug("Performing topology lookup");
-
+        //同步获取主从复制信息
         String info = connection.sync().info("replication");
         try {
             return getNodesFromInfo(info);
@@ -79,13 +79,18 @@ public class MasterSlaveTopologyProvider implements TopologyProvider {
         }
     }
 
+    /**
+     * 从info中获取redis节点描述信息
+     * @param info
+     * @return
+     */
     protected List<RedisNodeDescription> getNodesFromInfo(String info) {
         List<RedisNodeDescription> result = new ArrayList<>();
 
         RedisNodeDescription currentNodeDescription = getCurrentNodeDescription(info);
 
         result.add(currentNodeDescription);
-
+        //如果是master节点
         if (currentNodeDescription.getRole() == RedisInstance.Role.MASTER) {
             result.addAll(getSlavesFromInfo(info));
         } else {
@@ -105,7 +110,7 @@ public class MasterSlaveTopologyProvider implements TopologyProvider {
 
         return getRedisNodeDescription(matcher);
     }
-
+    //获取所有slave节点
     private List<RedisNodeDescription> getSlavesFromInfo(String info) {
 
         List<RedisNodeDescription> slaves = new ArrayList<>();
@@ -122,7 +127,7 @@ public class MasterSlaveTopologyProvider implements TopologyProvider {
 
         return slaves;
     }
-
+    //获取master节点
     private RedisNodeDescription getMasterFromInfo(String info) {
 
         Matcher masterHostMatcher = MASTER_HOST_PATTERN.matcher(info);
@@ -156,11 +161,11 @@ public class MasterSlaveTopologyProvider implements TopologyProvider {
 
         String roleString = matcher.group(1);
         RedisInstance.Role role = null;
-
+        //如果是master
         if (RedisInstance.Role.MASTER.name().equalsIgnoreCase(roleString)) {
             role = RedisInstance.Role.MASTER;
         }
-
+        //如果是slave
         if (RedisInstance.Role.SLAVE.name().equalsIgnoreCase(roleString)) {
             role = RedisInstance.Role.SLAVE;
         }

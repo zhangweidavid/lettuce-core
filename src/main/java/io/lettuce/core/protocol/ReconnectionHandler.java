@@ -87,14 +87,15 @@ class ReconnectionHandler {
      * @return reconnect {@link ChannelFuture}.
      */
     protected ChannelFuture reconnect() {
-
+        //获取远程地址
         SocketAddress remoteAddress = socketAddressSupplier.get();
 
         logger.debug("Reconnecting to Redis at {}", remoteAddress);
-
+        //连接远程地址
         ChannelFuture connectFuture = bootstrap.connect(remoteAddress);
+        //初始化channelPromise
         ChannelPromise initFuture = connectFuture.channel().newPromise();
-
+        //添加监听器
         initFuture.addListener((ChannelFuture it) -> {
 
             if (it.cause() != null) {

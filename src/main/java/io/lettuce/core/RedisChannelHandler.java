@@ -119,7 +119,7 @@ public abstract class RedisChannelHandler<K, V> implements Closeable, Connection
         if (debugEnabled) {
             logger.debug("dispatching command {}", cmd);
         }
-
+        //将发送命令对处理委派给channelWriter处理
         return channelWriter.write(cmd);
     }
 
@@ -140,7 +140,7 @@ public abstract class RedisChannelHandler<K, V> implements Closeable, Connection
      */
     public void registerCloseables(final Collection<Closeable> registry, final Closeable... closeables) {
         registry.addAll(Arrays.asList(closeables));
-
+        //注册关闭监听器
         addListener(resource -> {
             for (Closeable closeable : closeables) {
                 if (closeable == RedisChannelHandler.this) {
@@ -223,6 +223,7 @@ public abstract class RedisChannelHandler<K, V> implements Closeable, Connection
     @SuppressWarnings("unchecked")
     protected <T> T syncHandler(Object asyncApi, Class<?>... interfaces) {
         FutureSyncInvocationHandler h = new FutureSyncInvocationHandler((StatefulConnection<?, ?>) this, asyncApi, interfaces);
+        //创建动态代理
         return (T) Proxy.newProxyInstance(AbstractRedisClient.class.getClassLoader(), interfaces, h);
     }
 

@@ -49,11 +49,12 @@ class MasterSlaveChannelWriter<K, V> implements RedisChannelWriter {
         if (closed) {
             throw new RedisException("Connection is closed");
         }
-
+        //获取命令意图
         Intent intent = getIntent(command.getType());
+        //根据读写意图获取连接
         StatefulRedisConnection<K, V> connection = (StatefulRedisConnection) masterSlaveConnectionProvider
                 .getConnection(intent);
-
+        //通过这个connection派发命令
         return connection.dispatch(command);
     }
 
@@ -109,7 +110,7 @@ class MasterSlaveChannelWriter<K, V> implements RedisChannelWriter {
 
         return singleIntent;
     }
-
+    //判断当前命令是读命令还是写命令
     private static Intent getIntent(ProtocolKeyword type) {
         return ReadOnlyCommands.isReadOnlyCommand(type) ? Intent.READ : Intent.WRITE;
     }

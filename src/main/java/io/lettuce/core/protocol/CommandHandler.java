@@ -254,11 +254,11 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
         }
 
         setState(LifecycleState.CONNECTED);
-
+        //通道连接是通知终端
         endpoint.notifyChannelActive(ctx.channel());
 
         super.channelActive(ctx);
-
+        //如果通道不为null则
         if (channel != null) {
             channel.eventLoop().submit((Runnable) () -> channel.pipeline().fireUserEventTriggered(new Activated()));
         }

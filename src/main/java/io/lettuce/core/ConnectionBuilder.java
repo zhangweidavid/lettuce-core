@@ -71,17 +71,19 @@ public class ConnectionBuilder {
         LettuceAssert.assertState(endpoint != null, "Endpoint must be set");
 
         List<ChannelHandler> handlers = new ArrayList<>();
-
+        //设置clientOptions
         connection.setOptions(clientOptions);
-
+        //添加channel监听器
         handlers.add(new ChannelGroupListener(channelGroup));
+        //添加命令编码器
         handlers.add(new CommandEncoder());
+        //添加commandHander
         handlers.add(commandHandlerSupplier.get());
-
+        //如果设置自动重连，则设置看门狗处理器
         if (clientOptions.isAutoReconnect()) {
             handlers.add(createConnectionWatchdog());
         }
-
+        //设置connectionEvenTrigger
         handlers.add(new ConnectionEventTrigger(connectionEvents, connection, clientResources.eventBus()));
 
         if (clientOptions.isAutoReconnect()) {
@@ -100,7 +102,7 @@ public class ConnectionBuilder {
     }
 
     protected ConnectionWatchdog createConnectionWatchdog() {
-
+         //如果看门狗不为null直接返回
         if (connectionWatchdog != null) {
             return connectionWatchdog;
         }
@@ -108,10 +110,10 @@ public class ConnectionBuilder {
         LettuceAssert.assertState(bootstrap != null, "Bootstrap must be set for autoReconnect=true");
         LettuceAssert.assertState(timer != null, "Timer must be set for autoReconnect=true");
         LettuceAssert.assertState(socketAddressSupplier != null, "SocketAddressSupplier must be set for autoReconnect=true");
-
+        //创建连接看门狗
         ConnectionWatchdog watchdog = new ConnectionWatchdog(clientResources.reconnectDelay(), clientOptions, bootstrap, timer,
                 clientResources.eventExecutorGroup(), socketAddressSupplier, reconnectionListener, connection);
-
+        //向endpoint注册看门狗
         endpoint.registerConnectionWatchdog(watchdog);
 
         connectionWatchdog = watchdog;

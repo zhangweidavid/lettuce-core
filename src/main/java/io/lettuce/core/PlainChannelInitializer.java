@@ -36,15 +36,19 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.util.Timeout;
 
 /**
+ * 通道
  * @author Mark Paluch
  */
 class PlainChannelInitializer extends io.netty.channel.ChannelInitializer<Channel> implements RedisChannelInitializer {
 
+    //不ping
     final static Supplier<AsyncCommand<?, ?, ?>> NO_PING = () -> null;
-
+    //处理器提供器
     private final Supplier<List<ChannelHandler>> handlers;
+    //ping命令提供器
     private final Supplier<AsyncCommand<?, ?, ?>> pingCommandSupplier;
     private final ClientResources clientResources;
+    //超时时间
     private final Duration timeout;
 
     private volatile CompletableFuture<Boolean> initializedFuture = new CompletableFuture<>();
@@ -60,6 +64,7 @@ class PlainChannelInitializer extends io.netty.channel.ChannelInitializer<Channe
     @Override
     protected void initChannel(Channel channel) throws Exception {
 
+        //如果pipeline中没有配置channelActivator则需要添加channelActivator处理器
         if (channel.pipeline().get("channelActivator") == null) {
 
             channel.pipeline().addLast("channelActivator", new RedisChannelInitializerImpl() {
@@ -73,9 +78,9 @@ class PlainChannelInitializer extends io.netty.channel.ChannelInitializer<Channe
 
                 @Override
                 public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-
+                    //如果通道断开连接
                     clientResources.eventBus().publish(new DisconnectedEvent(local(ctx), remote(ctx)));
-
+                    //如果初始化没有完成则抛出异常
                     if (!initializedFuture.isDone()) {
                         initializedFuture.completeExceptionally(new RedisConnectionException("Connection closed prematurely"));
                     }
@@ -99,9 +104,9 @@ class PlainChannelInitializer extends io.netty.channel.ChannelInitializer<Channe
 
                 @Override
                 public void channelActive(final ChannelHandlerContext ctx) throws Exception {
-
+                    //通过事件总线发送连接事件
                     clientResources.eventBus().publish(new ConnectedEvent(local(ctx), remote(ctx)));
-
+                    //如果ping命令提供器不是NO_PING则发送执行ping
                     if (pingCommandSupplier != NO_PING) {
                         pingCommand = pingCommandSupplier.get();
                         pingBeforeActivate(pingCommand, initializedFuture, ctx, clientResources, timeout);
@@ -119,7 +124,7 @@ class PlainChannelInitializer extends io.netty.channel.ChannelInitializer<Channe
                 }
             });
         }
-
+        //将hanler提供器提供的处理器添加到channel中
         for (ChannelHandler handler : handlers.get()) {
             channel.pipeline().addLast(handler);
         }

@@ -28,9 +28,7 @@ import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 
 /**
- * A netty {@link ChannelHandler} responsible for encoding commands.
- *
- * @author Mark Paluch
+ * 命令编码器
  */
 public class CommandEncoder extends MessageToByteEncoder<Object> {
 
@@ -69,9 +67,10 @@ public class CommandEncoder extends MessageToByteEncoder<Object> {
     @Override
     @SuppressWarnings("unchecked")
     protected void encode(ChannelHandlerContext ctx, Object msg, ByteBuf out) throws Exception {
-
+        //如果参数是Redis命令
         if (msg instanceof RedisCommand) {
             RedisCommand<?, ?, ?> command = (RedisCommand<?, ?, ?>) msg;
+            //编码单个redis命令
             encode(ctx, out, command);
         }
 
@@ -86,7 +85,9 @@ public class CommandEncoder extends MessageToByteEncoder<Object> {
     private void encode(ChannelHandlerContext ctx, ByteBuf out, RedisCommand<?, ?, ?> command) {
 
         try {
+            //标记写入索引
             out.markWriterIndex();
+            //命令编码
             command.encode(out);
         } catch (RuntimeException e) {
             out.resetWriterIndex();

@@ -100,13 +100,13 @@ class SentinelTopologyRefresh implements Closeable {
     }
 
     private void initializeSentinels() {
-
+        //如果已经关闭则返回
         if (closed) {
             return;
         }
 
         AtomicReference<RedisConnectionException> ref = new AtomicReference<>();
-
+        //遍历sentinels
         sentinels.forEach(redisURI -> {
 
             if (closed) {
@@ -116,10 +116,10 @@ class SentinelTopologyRefresh implements Closeable {
             StatefulRedisPubSubConnection<String, String> pubSubConnection = null;
             try {
                 if (!pubSubConnections.containsKey(redisURI)) {
-
+                    //创建订阅发布连接
                     pubSubConnection = redisClient.connectPubSub(CODEC, redisURI);
                     pubSubConnections.put(redisURI, pubSubConnection);
-
+                    //增加监听器
                     pubSubConnection.addListener(adapter);
                     pubSubConnection.async().psubscribe("*");
                 }
@@ -140,7 +140,7 @@ class SentinelTopologyRefresh implements Closeable {
             close();
         }
     }
-
+    //处理订阅消息
     private void processMessage(String pattern, String channel, String message) {
 
         topologyRefresh.processMessage(channel, message, () -> {
@@ -148,6 +148,7 @@ class SentinelTopologyRefresh implements Closeable {
             return () -> refreshRunnables.forEach(Runnable::run);
         });
 
+        //重新连接处理
         sentinelReconnect.processMessage(channel, message, () -> {
 
             LOG.debug("Received sentinel state changed signal from Redis Sentinel, scheduling sentinel reconnect attempts");

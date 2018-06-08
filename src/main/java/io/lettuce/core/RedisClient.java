@@ -211,6 +211,7 @@ public class RedisClient extends AbstractRedisClient {
     public StatefulRedisConnection<String, String> connect(RedisURI redisURI) {
 
         assertNotNull(redisURI);
+        //连接单机
         return connectStandalone(newStringStringCodec(), redisURI, redisURI.getTimeout());
     }
 
@@ -248,8 +249,9 @@ public class RedisClient extends AbstractRedisClient {
     }
 
     private <K, V> StatefulRedisConnection<K, V> connectStandalone(RedisCodec<K, V> codec, RedisURI redisURI, Duration timeout) {
-
+        //单机异步
         ConnectionFuture<StatefulRedisConnection<K, V>> future = connectStandaloneAsync(codec, redisURI, timeout);
+        //获取连接
         return getConnection(future);
     }
 
@@ -266,13 +268,15 @@ public class RedisClient extends AbstractRedisClient {
             RedisURI redisURI, Duration timeout) {
 
         assertNotNull(codec);
+        //检查URI是否有效
         checkValidRedisURI(redisURI);
 
         logger.debug("Trying to get a Redis connection for: " + redisURI);
-
+        //创建DefaultEndpoint
         DefaultEndpoint endpoint = new DefaultEndpoint(clientOptions);
-
+        //创建connection
         StatefulRedisConnectionImpl<K, V> connection = newStatefulRedisConnection(endpoint, codec, timeout);
+        //创建连接
         ConnectionFuture<StatefulRedisConnection<K, V>> future = connectStatefulAsync(connection, endpoint, redisURI,
                 () -> new CommandHandler(clientOptions, clientResources, endpoint));
 
@@ -289,7 +293,7 @@ public class RedisClient extends AbstractRedisClient {
     @SuppressWarnings("unchecked")
     private <K, V, S> ConnectionFuture<S> connectStatefulAsync(StatefulRedisConnectionImpl<K, V> connection,
             DefaultEndpoint endpoint, RedisURI redisURI, Supplier<CommandHandler> commandHandlerSupplier) {
-
+        //connetion构造器
         ConnectionBuilder connectionBuilder;
         if (redisURI.isSsl()) {
             SslConnectionBuilder sslConnectionBuilder = SslConnectionBuilder.sslConnectionBuilder();
@@ -298,13 +302,17 @@ public class RedisClient extends AbstractRedisClient {
         } else {
             connectionBuilder = ConnectionBuilder.connectionBuilder();
         }
-
+        //设置connection
         connectionBuilder.connection(connection);
+        //设置客户端选项
         connectionBuilder.clientOptions(clientOptions);
+        //设置客户端资源
         connectionBuilder.clientResources(clientResources);
+        //设置命令处理器以及endpoint
         connectionBuilder.commandHandler(commandHandlerSupplier).endpoint(endpoint);
-
+        //填充连接构造器
         connectionBuilder(getSocketAddressSupplier(redisURI), connectionBuilder, redisURI);
+        //设置通道类型
         channelType(connectionBuilder, redisURI);
 
         if (clientOptions.isPingBeforeActivateConnection()) {
@@ -314,9 +322,10 @@ public class RedisClient extends AbstractRedisClient {
                 connectionBuilder.enablePingBeforeConnect();
             }
         }
-
+        //创建异步通道
         ConnectionFuture<RedisChannelHandler<K, V>> future = initializeChannelAsync(connectionBuilder);
 
+        //如果客户端选项配置了pingBeforeActivateConnection同时有密码
         if (!clientOptions.isPingBeforeActivateConnection() && hasPassword(redisURI)) {
 
             future = future.thenApplyAsync(channelHandler -> {
@@ -501,20 +510,23 @@ public class RedisClient extends AbstractRedisClient {
         assertNotNull(codec);
         checkValidRedisURI(redisURI);
 
+        //创建ConnectionBuilder
         ConnectionBuilder connectionBuilder = ConnectionBuilder.connectionBuilder();
+        //复制clientOptions
         connectionBuilder.clientOptions(ClientOptions.copyOf(getOptions()));
         connectionBuilder.clientResources(clientResources);
-
+        //创建endpoint
         DefaultEndpoint endpoint = new DefaultEndpoint(clientOptions);
-
+        //创建连接
         StatefulRedisSentinelConnectionImpl<K, V> connection = newStatefulRedisSentinelConnection(endpoint, codec, timeout);
 
         logger.debug("Trying to get a Redis Sentinel connection for one of: " + redisURI.getSentinels());
-
+        //设置endpoint,commandHander以及connection
         connectionBuilder.endpoint(endpoint).commandHandler(() -> new CommandHandler(clientOptions, clientResources, endpoint))
                 .connection(connection);
+        //设置bootStrap, password...
         connectionBuilder(getSocketAddressSupplier(redisURI), connectionBuilder, redisURI);
-
+        //如果配置了pingBeforeActivateConnection
         if (clientOptions.isPingBeforeActivateConnection()) {
             connectionBuilder.enablePingBeforeConnect();
         }
@@ -533,7 +545,7 @@ public class RedisClient extends AbstractRedisClient {
             boolean first = true;
             Exception causingException = null;
             validateUrisAreOfSameConnectionType(redisURI.getSentinels());
-
+            //遍历sentinels
             for (RedisURI uri : redisURI.getSentinels()) {
                 if (first) {
                     channelType(connectionBuilder, uri);

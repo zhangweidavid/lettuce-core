@@ -77,13 +77,15 @@ public class MasterSlaveConnectionProvider<K, V> {
      * @param intent command intent
      * @return the connection.
      */
+    //根据意图获取连接
     public StatefulRedisConnection<K, V> getConnection(Intent intent) {
 
         if (debugEnabled) {
             logger.debug("getConnection(" + intent + ")");
         }
-
+        //如果readFrom不为null且是READ
         if (readFrom != null && intent == Intent.READ) {
+            //根据readFrom配置从已知节点中选择可用节点描述
             List<RedisNodeDescription> selection = readFrom.select(new ReadFrom.Nodes() {
                 @Override
                 public List<RedisNodeDescription> getNodes() {
@@ -95,30 +97,35 @@ public class MasterSlaveConnectionProvider<K, V> {
                     return knownNodes.iterator();
                 }
             });
-
+            //如果可选择节点集合为空则抛出异常
             if (selection.isEmpty()) {
                 throw new RedisException(String.format("Cannot determine a node to read (Known nodes: %s) with setting %s",
                         knownNodes, readFrom));
             }
             try {
+                //遍历所有可用节点
                 for (RedisNodeDescription redisNodeDescription : selection) {
+                    //获取节点连接
                     StatefulRedisConnection<K, V> readerCandidate = getConnection(redisNodeDescription);
+                    //如果节点连接不是打开到连接则继续查找下一个连接
                     if (!readerCandidate.isOpen()) {
                         continue;
                     }
+                    //返回可用连接
                     return readerCandidate;
                 }
-
+                //如果没有找到可用连接，默认返回第一个
                 return getConnection(selection.get(0));
             } catch (RuntimeException e) {
                 throw new RedisException(e);
             }
         }
-
+        //如果没有配置readFrom或者不是READ 则返回master连接
         return getConnection(getMaster());
     }
 
     protected StatefulRedisConnection<K, V> getConnection(RedisNodeDescription redisNodeDescription) {
+       //如果没有则创建新节点，并添加到缓存中
         return connections.computeIfAbsent(
                 new ConnectionKey(redisNodeDescription.getUri().getHost(), redisNodeDescription.getUri().getPort()),
                 connectionFactory);
@@ -235,6 +242,9 @@ public class MasterSlaveConnectionProvider<K, V> {
         throw new RedisException(String.format("Master is currently unknown: %s", knownNodes));
     }
 
+    /**
+     * 连接工厂
+     */
     private class ConnectionFactory<K, V> implements Function<ConnectionKey, StatefulRedisConnection<K, V>> {
 
         private final RedisClient redisClient;
@@ -247,7 +257,7 @@ public class MasterSlaveConnectionProvider<K, V> {
 
         @Override
         public StatefulRedisConnection<K, V> apply(ConnectionKey key) {
-
+            //构建URI
             RedisURI.Builder builder = RedisURI.Builder
                     .redis(key.host, key.port)
                     .withSsl(initialRedisUri.isSsl())
@@ -263,8 +273,10 @@ public class MasterSlaveConnectionProvider<K, V> {
             }
             builder.withDatabase(initialRedisUri.getDatabase());
 
+            //创建连接
             StatefulRedisConnection<K, V> connection = redisClient.connect(redisCodec, builder.build());
 
+            //设置是否自动提交
             synchronized (stateLock) {
                 connection.setAutoFlushCommands(autoFlushCommands);
             }

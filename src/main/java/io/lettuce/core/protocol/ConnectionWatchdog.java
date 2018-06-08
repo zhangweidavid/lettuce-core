@@ -114,7 +114,7 @@ public class ConnectionWatchdog extends ChannelInboundHandlerAdapter {
                 return remoteAddress;
             }
         };
-
+        //创建重连处理器
         this.reconnectionHandler = new ReconnectionHandler(clientOptions, bootstrap, wrappedSocketAddressSupplier, timer,
                 reconnectWorkers, connectionFacade);
 
@@ -147,13 +147,16 @@ public class ConnectionWatchdog extends ChannelInboundHandlerAdapter {
         reconnectionHandler.prepareClose();
     }
 
+    //通道激活
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
 
         reconnectSchedulerSync.set(false);
+        //设置通道
         channel = ctx.channel();
         reconnectScheduleTimeout = null;
         logPrefix = null;
+        //获取远程地址
         remoteAddress = channel.remoteAddress();
         logPrefix = null;
         logger.debug("{} channelActive()", logPrefix());
@@ -161,6 +164,7 @@ public class ConnectionWatchdog extends ChannelInboundHandlerAdapter {
         super.channelActive(ctx);
     }
 
+    //通道不可用
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
 
@@ -169,9 +173,9 @@ public class ConnectionWatchdog extends ChannelInboundHandlerAdapter {
             logger.debug("{} ConnectionWatchdog not armed", logPrefix());
             return;
         }
-
+        //将当前channel设置为null
         channel = null;
-
+            //如果监听channelInactive同时重连处理器不是延迟连接的
         if (listenOnChannelInactive && !reconnectionHandler.isReconnectSuspended()) {
             scheduleReconnect();
         } else {
@@ -207,7 +211,7 @@ public class ConnectionWatchdog extends ChannelInboundHandlerAdapter {
         }
 
         if ((channel == null || !channel.isActive()) && reconnectSchedulerSync.compareAndSet(false, true)) {
-
+            //尝试次数
             attempts++;
             final int attempt = attempts;
             int timeout = (int) reconnectDelay.createDelay(attempt).toMillis();

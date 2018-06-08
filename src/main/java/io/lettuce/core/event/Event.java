@@ -18,7 +18,7 @@ package io.lettuce.core.event;
 /**
  *
  * Marker-interface for events that are published over the event bus.
- *
+ * 通过事件总线发布事件的标记接口
  * @author Mark Paluch
  * @since 3.4
  */

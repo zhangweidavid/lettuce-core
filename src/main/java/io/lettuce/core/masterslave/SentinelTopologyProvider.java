@@ -46,10 +46,12 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
 public class SentinelTopologyProvider implements TopologyProvider {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(SentinelTopologyProvider.class);
-
+    //主节点ID
     private final String masterId;
     private final RedisClient redisClient;
+    //哨兵
     private final RedisURI sentinelUri;
+    //超时时间
     private final Duration timeout;
 
     /**
@@ -68,6 +70,7 @@ public class SentinelTopologyProvider implements TopologyProvider {
         this.masterId = masterId;
         this.redisClient = redisClient;
         this.sentinelUri = sentinelUri;
+        //从uri中获取超时时间
         this.timeout = sentinelUri.getTimeout();
     }
 
@@ -85,8 +88,9 @@ public class SentinelTopologyProvider implements TopologyProvider {
             try {
                 Map<String, String> master = masterFuture.get(timeout.toNanos(), TimeUnit.NANOSECONDS);
                 List<Map<String, String>> slaves = slavesFuture.get(timeout.toNanos(), TimeUnit.NANOSECONDS);
-
+                //添加master节点
                 result.add(toNode(master, RedisInstance.Role.MASTER));
+                //添加所有slave节点
                 result.addAll(slaves.stream().filter(SentinelTopologyProvider::isAvailable)
                         .map(map -> toNode(map, RedisInstance.Role.SLAVE)).collect(Collectors.toList()));
 

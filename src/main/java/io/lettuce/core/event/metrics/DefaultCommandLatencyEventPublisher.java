@@ -73,7 +73,7 @@ public class DefaultCommandLatencyEventPublisher implements MetricEventPublisher
         if (!isEnabled() || !commandLatencyCollector.isEnabled()) {
             return;
         }
-
+        //发送度量
         eventBus.publish(new CommandLatencyEvent(commandLatencyCollector.retrieveMetrics()));
     }
 

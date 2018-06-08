@@ -58,13 +58,13 @@ class ReadFromImpl {
         public List<RedisNodeDescription> select(Nodes nodes) {
 
             List<RedisNodeDescription> result = new ArrayList<>(nodes.getNodes().size());
-
+            //优先添加master节点
             for (RedisNodeDescription node : nodes) {
                 if (node.getRole() == RedisInstance.Role.MASTER) {
                     result.add(node);
                 }
             }
-
+            //其次在添加slave节点
             for (RedisNodeDescription node : nodes) {
                 if (node.getRole() == RedisInstance.Role.SLAVE) {
                     result.add(node);
@@ -84,7 +84,7 @@ class ReadFromImpl {
         public List<RedisNodeDescription> select(Nodes nodes) {
 
             List<RedisNodeDescription> result = new ArrayList<>(nodes.getNodes().size());
-
+            //只获取slave节点
             for (RedisNodeDescription node : nodes) {
                 if (node.getRole() == RedisInstance.Role.SLAVE) {
                     result.add(node);
@@ -104,13 +104,13 @@ class ReadFromImpl {
         public List<RedisNodeDescription> select(Nodes nodes) {
 
             List<RedisNodeDescription> result = new ArrayList<>(nodes.getNodes().size());
-
+            //优先添加slave节点
             for (RedisNodeDescription node : nodes) {
                 if (node.getRole() == RedisInstance.Role.SLAVE) {
                     result.add(node);
                 }
             }
-
+            //最后添加master节点
             for (RedisNodeDescription node : nodes) {
                 if (node.getRole() == RedisInstance.Role.MASTER) {
                     result.add(node);

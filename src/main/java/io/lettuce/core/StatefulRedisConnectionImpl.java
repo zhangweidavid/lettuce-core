@@ -69,8 +69,11 @@ public class StatefulRedisConnectionImpl<K, V> extends RedisChannelHandler<K, V>
         super(writer, timeout);
 
         this.codec = codec;
+        //创建异步步连接
         this.async = newRedisAsyncCommandsImpl();
+        //创建同步连接
         this.sync = newRedisSyncCommandsImpl();
+        //创建响应式连接
         this.reactive = newRedisReactiveCommandsImpl();
     }
 
@@ -94,6 +97,7 @@ public class StatefulRedisConnectionImpl<K, V> extends RedisChannelHandler<K, V>
      * @return a new instance
      */
     protected RedisAsyncCommandsImpl<K, V> newRedisAsyncCommandsImpl() {
+        //使用装饰器模式对当前实例进行增强
         return new RedisAsyncCommandsImpl<>(this, codec);
     }
 
@@ -145,10 +149,11 @@ public class StatefulRedisConnectionImpl<K, V> extends RedisChannelHandler<K, V>
 
     @Override
     public <T> RedisCommand<K, V, T> dispatch(RedisCommand<K, V, T> command) {
-
+        //前置处理
         RedisCommand<K, V, T> toSend = preProcessCommand(command);
 
         try {
+            //通过父类进行派发，父类中对writer为当前类对构造方法对入参
             return super.dispatch(toSend);
         } finally {
             if (command.getType().name().equals(MULTI.name())) {

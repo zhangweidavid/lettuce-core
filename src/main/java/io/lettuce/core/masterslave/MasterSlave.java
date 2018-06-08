@@ -107,7 +107,7 @@ public class MasterSlave {
         LettuceAssert.notNull(redisClient, "RedisClient must not be null");
         LettuceAssert.notNull(codec, "RedisCodec must not be null");
         LettuceAssert.notNull(redisURI, "RedisURI must not be null");
-
+        //如果是sentinel模式
         if (isSentinel(redisURI)) {
             return connectSentinel(redisClient, codec, redisURI);
         } else {
@@ -150,18 +150,26 @@ public class MasterSlave {
 
     private static <K, V> StatefulRedisMasterSlaveConnection<K, V> connectSentinel(RedisClient redisClient,
             RedisCodec<K, V> codec, RedisURI redisURI) {
-
+        //创建拓扑提供者为哨兵拓扑
         TopologyProvider topologyProvider = new SentinelTopologyProvider(redisURI.getSentinelMasterId(), redisClient, redisURI);
+
+        //创建哨兵拓扑刷新服务
         SentinelTopologyRefresh sentinelTopologyRefresh = new SentinelTopologyRefresh(redisClient,
                 redisURI.getSentinelMasterId(), redisURI.getSentinels());
 
+        //利用拓扑提供者和redisClient创建主备拓扑刷新服务
         MasterSlaveTopologyRefresh refresh = new MasterSlaveTopologyRefresh(redisClient, topologyProvider);
+
+        //创建主备连接提供者
         MasterSlaveConnectionProvider<K, V> connectionProvider = new MasterSlaveConnectionProvider<>(redisClient, codec,
                 redisURI, Collections.emptyMap());
-
+        //使用主备拓扑刷新服务获取所有节点将其设置到连接提供者中
         connectionProvider.setKnownNodes(refresh.getNodes(redisURI));
 
+        //使用连接提供者创建主备通道写入器
         MasterSlaveChannelWriter<K, V> channelWriter = new MasterSlaveChannelWriter<>(connectionProvider);
+
+        //创建连接
         StatefulRedisMasterSlaveConnectionImpl<K, V> connection = new StatefulRedisMasterSlaveConnectionImpl<>(channelWriter,
                 codec, redisURI.getTimeout());
 
@@ -185,7 +193,9 @@ public class MasterSlave {
         };
 
         try {
+            //向连接注册可关闭服务
             connection.registerCloseables(new ArrayList<>(), sentinelTopologyRefresh);
+            //绑定哨兵拓扑结构变化执行逻辑
             sentinelTopologyRefresh.bind(runnable);
         } catch (RuntimeException e) {
 

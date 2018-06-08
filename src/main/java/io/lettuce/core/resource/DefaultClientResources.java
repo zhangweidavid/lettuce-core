@@ -75,7 +75,7 @@ public class DefaultClientResources implements ClientResources {
     public static final int MIN_IO_THREADS = 3;
 
     /**
-     * Minimum number of computation threads.
+     * 最小计算线程
      */
     public static final int MIN_COMPUTATION_THREADS = 3;
 
@@ -124,7 +124,7 @@ public class DefaultClientResources implements ClientResources {
     private volatile boolean shutdownCalled = false;
 
     protected DefaultClientResources(Builder builder) {
-
+        //如果指定的eventLoopGroupProvider为null
         if (builder.eventLoopGroupProvider == null) {
             int ioThreadPoolSize = builder.ioThreadPoolSize;
 
@@ -141,24 +141,27 @@ public class DefaultClientResources implements ClientResources {
             this.sharedEventLoopGroupProvider = true;
             this.eventLoopGroupProvider = builder.eventLoopGroupProvider;
         }
-
+        //如果没有配置eventExecutorGroup
         if (builder.eventExecutorGroup == null) {
+            //获取配置的computationThreadsPoolSize
             int computationThreadPoolSize = builder.computationThreadPoolSize;
+            //如果配置的计算线程池大小小于最小值限制，则使用最小值
             if (computationThreadPoolSize < MIN_COMPUTATION_THREADS) {
 
                 logger.info("computationThreadPoolSize is less than {} ({}), setting to: {}", MIN_COMPUTATION_THREADS,
                         computationThreadPoolSize, MIN_COMPUTATION_THREADS);
                 computationThreadPoolSize = MIN_COMPUTATION_THREADS;
             }
-
+            //创建eventExectorGroup
             eventExecutorGroup = DefaultEventLoopGroupProvider.createEventLoopGroup(DefaultEventExecutorGroup.class,
                     computationThreadPoolSize);
+            //不是共享线程池
             sharedEventExecutor = false;
-        } else {
+        } else { //如果配置了线程池则该线程池为共享线程池
             sharedEventExecutor = true;
             eventExecutorGroup = builder.eventExecutorGroup;
         }
-
+        //如果定时器为null则创建定时器 ,如果配置了定时器则定时器为共享定时器
         if (builder.timer == null) {
             timer = new HashedWheelTimer(new DefaultThreadFactory("lettuce-timer"));
             sharedTimer = false;

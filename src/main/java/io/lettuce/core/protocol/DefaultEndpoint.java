@@ -78,7 +78,7 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
 
     /**
      * Create a new {@link DefaultEndpoint}.
-     *
+     * 根据clientOptions创建终端
      * @param clientOptions client options for this connection, must not be {@literal null}
      */
     public DefaultEndpoint(ClientOptions clientOptions) {
@@ -86,9 +86,13 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
         LettuceAssert.notNull(clientOptions, "ClientOptions must not be null");
 
         this.clientOptions = clientOptions;
+        //如果设置自动连接，则可靠性选在AT_LEAST_ONCE,否则选在AT_MOST_ONCE
         this.reliability = clientOptions.isAutoReconnect() ? Reliability.AT_LEAST_ONCE : Reliability.AT_MOST_ONCE;
+       //根据设置的请求队列大小创建断开连接缓存
         this.disconnectedBuffer = LettuceFactories.newConcurrentQueue(clientOptions.getRequestQueueSize());
+        //创建不自动提交的命令缓存
         this.commandBuffer = LettuceFactories.newConcurrentQueue(clientOptions.getRequestQueueSize());
+        //是否是有界队列
         this.boundedQueues = clientOptions.getRequestQueueSize() != Integer.MAX_VALUE;
     }
 
@@ -97,30 +101,37 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
         this.connectionFacade = connectionFacade;
     }
 
+    //设置是否自动提交
     @Override
     public void setAutoFlushCommands(boolean autoFlush) {
         this.autoFlushCommands = autoFlush;
     }
 
+    //写命令
     @Override
     public <K, V, T> RedisCommand<K, V, T> write(RedisCommand<K, V, T> command) {
 
         LettuceAssert.notNull(command, "Command must not be null");
 
         try {
+            //写入器计数自增
             sharedLock.incrementWriters();
 
+            //校验写入器
             validateWrite(1);
 
+            //如果自动刷新
             if (autoFlushCommands) {
 
                 if (isConnected()) {
+                    //向已连接通道写入命令并刷新
                     writeToChannelAndFlush(command);
                 } else {
+                    //向未连接通道写入命令并刷新
                     writeToDisconnectedBuffer(command);
                 }
 
-            } else {
+            } else {//不是自动刷新则将命令写入到缓存
                 writeToBuffer(command);
             }
         } finally {
@@ -166,25 +177,25 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
     }
 
     private void validateWrite(int commands) {
-
+        //如果已经关闭则抛出异常
         if (isClosed()) {
             throw new RedisException("Connection is closed");
         }
-
+        //是否使用有界队列
         if (usesBoundedQueues()) {
-
+            //当前通道是否已经连接
             boolean connected = isConnected();
-
+            //如果队列满则抛出异常
             if (QUEUE_SIZE.get(this) + commands > clientOptions.getRequestQueueSize()) {
                 throw new RedisException("Request queue size exceeded: " + clientOptions.getRequestQueueSize()
                         + ". Commands are not accepted until the queue size drops.");
             }
-
+            //如果通道没有连接同时断开连接缓存已满则抛出异常
             if (!connected && disconnectedBuffer.size() + commands > clientOptions.getRequestQueueSize()) {
                 throw new RedisException("Request queue size exceeded: " + clientOptions.getRequestQueueSize()
                         + ". Commands are not accepted until the queue size drops.");
             }
-
+            //已经连接但是命令缓存已满则抛出异常
             if (connected && commandBuffer.size() + commands > clientOptions.getRequestQueueSize()) {
                 throw new RedisException("Command buffer size exceeded: " + clientOptions.getRequestQueueSize()
                         + ". Commands are not accepted until the queue size drops.");
@@ -252,9 +263,9 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
     }
 
     private void writeToChannelAndFlush(RedisCommand<?, ?, ?> command) {
-
+         //将单前对象添加到队列中
         QUEUE_SIZE.incrementAndGet(this);
-
+        //如果可靠策略是AT_MOST_ONCE
         if (reliability == Reliability.AT_MOST_ONCE) {
             // cancel on exceptions and remove from queue, because there is no housekeeping
             channelWriteAndFlush(command).addListener(AtMostOnceWriteListener.newInstance(this, command));
@@ -356,7 +367,7 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
         if (connectionWatchdog != null) {
             connectionWatchdog.arm();
         }
-
+        //独占锁执行
         sharedLock.doExclusive(() -> {
 
             try {
@@ -374,7 +385,7 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
                 }
 
                 connectionFacade.activated();
-
+                //将断开期间的命令都发送出去
                 flushCommands(disconnectedBuffer);
             } catch (Exception e) {
 
@@ -652,14 +663,16 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
         return logPrefix = buffer;
     }
 
+    //监听器辅助类
     static class ListenerSupport {
 
         Collection<? extends RedisCommand<?, ?, ?>> sentCommands;
         RedisCommand<?, ?, ?> sentCommand;
         DefaultEndpoint endpoint;
 
+        //出列
         void dequeue() {
-
+            //如果发送到命令不为null则对当前终端出列
             if (sentCommand != null) {
                 QUEUE_SIZE.decrementAndGet(endpoint);
             } else {
@@ -741,7 +754,7 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
     }
 
     /**
-     * A generic future listener which retries unsuccessful writes.
+     * 重试监听器
      */
     static class RetryListener extends ListenerSupport implements GenericFutureListener<Future<Void>> {
 
@@ -759,7 +772,7 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
         }
 
         static RetryListener newInstance(DefaultEndpoint endpoint, RedisCommand<?, ?, ?> command) {
-
+            //获取重试简体器对象
             RetryListener entry = RECYCLER.get();
 
             entry.endpoint = endpoint;
@@ -794,22 +807,27 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
             Throwable cause = future.cause();
 
             boolean success = future.isSuccess();
+            //出列
             dequeue();
-
+            //如果写成功则返回
             if (success) {
                 return;
             }
-
+            //如果写异常是指定对异常则不再重试
             if (cause instanceof EncoderException || cause instanceof Error || cause.getCause() instanceof Error) {
                 complete(cause);
                 return;
             }
 
+            //其它异常则重试
+            //获取通道
             Channel channel = endpoint.channel;
 
-            // Capture values before recycler clears these.
+            //获取发送的命令
             RedisCommand<?, ?, ?> sentCommand = this.sentCommand;
+            //获取发送的批量命令
             Collection<? extends RedisCommand<?, ?, ?>> sentCommands = this.sentCommands;
+            //尝试入队
             potentiallyRequeueCommands(channel, sentCommand, sentCommands);
 
             if (!(cause instanceof ClosedChannelException)) {
@@ -834,7 +852,7 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
          */
         private void potentiallyRequeueCommands(Channel channel, RedisCommand<?, ?, ?> sentCommand,
                 Collection<? extends RedisCommand<?, ?, ?>> sentCommands) {
-
+            //如果发送命令不为null且已经处理完成，则返回
             if (sentCommand != null && sentCommand.isDone()) {
                 return;
             }
@@ -854,9 +872,11 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
                     return;
                 }
             }
-
+            //存在通道
             if (channel != null) {
+                //获取终端
                 DefaultEndpoint endpoint = this.endpoint;
+                //向channel工作线程池提交任务
                 channel.eventLoop().submit(() -> {
                     requeueCommands(sentCommand, sentCommands, endpoint);
                 });

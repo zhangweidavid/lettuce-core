@@ -107,14 +107,15 @@ public class Command<K, V, T> implements RedisCommand<K, V, T> {
      * @param buf Buffer to write to.
      */
     public void encode(ByteBuf buf) {
-
+       //写入"*" 根据Redis协议定义第一个字符为*表示数组
         buf.writeByte('*');
+        //写入参数个数
         CommandArgs.IntegerArgument.writeInteger(buf, 1 + (args != null ? args.count() : 0));
-
+        //写入分割符
         buf.writeBytes(CommandArgs.CRLF);
-
+        //写入命令
         CommandArgs.BytesArgument.writeBytes(buf, type.getBytes());
-
+        //如果参数不为空则写入参数
         if (args != null) {
             args.encode(buf);
         }

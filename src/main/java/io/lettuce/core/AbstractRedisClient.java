@@ -141,25 +141,29 @@ public abstract class AbstractRedisClient {
      */
     protected void connectionBuilder(Supplier<SocketAddress> socketAddressSupplier, ConnectionBuilder connectionBuilder,
             RedisURI redisURI) {
-
+       //创建Bootstrap netty启动器
         Bootstrap redisBootstrap = new Bootstrap();
+        //设置channel选项
         redisBootstrap.option(ChannelOption.WRITE_BUFFER_HIGH_WATER_MARK, 32 * 1024);
         redisBootstrap.option(ChannelOption.WRITE_BUFFER_LOW_WATER_MARK, 8 * 1024);
         redisBootstrap.option(ChannelOption.ALLOCATOR, BUF_ALLOCATOR);
 
         SocketOptions socketOptions = getOptions().getSocketOptions();
-
+        //设置连接超时时间
         redisBootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS,
                 Math.toIntExact(socketOptions.getConnectTimeout().toMillis()));
-
+        //如果redisURI中没有socket选择参数则根据clientresouce设置
         if (LettuceStrings.isEmpty(redisURI.getSocket())) {
+            //是否保持长连接
             redisBootstrap.option(ChannelOption.SO_KEEPALIVE, socketOptions.isKeepAlive());
+            //是否要求TCP低延迟
             redisBootstrap.option(ChannelOption.TCP_NODELAY, socketOptions.isTcpNoDelay());
         }
-
+        //设置超时时间
         connectionBuilder.timeout(redisURI.getTimeout());
+        //设置密码
         connectionBuilder.password(redisURI.getPassword());
-
+        //设置bootstrap
         connectionBuilder.bootstrap(redisBootstrap);
         connectionBuilder.channelGroup(channels).connectionEvents(connectionEvents).timer(timer);
         connectionBuilder.socketAddressSupplier(socketAddressSupplier);
@@ -238,18 +242,15 @@ public abstract class AbstractRedisClient {
     }
 
     /**
-     * Connect and initialize a channel from {@link ConnectionBuilder}.
-     *
-     * @param connectionBuilder must not be {@literal null}.
-     * @return the {@link ConnectionFuture} to synchronize the connection process.
-     * @since 4.4
+     *  连接同时通过connectionBuilder初始化一个通道
      */
     @SuppressWarnings("unchecked")
     protected <K, V, T extends RedisChannelHandler<K, V>> ConnectionFuture<T> initializeChannelAsync(
             ConnectionBuilder connectionBuilder) {
-
+        //获取socketAddress
         SocketAddress redisAddress = connectionBuilder.socketAddress();
 
+        //如果线程池关闭则抛出异常
         if (clientResources.eventExecutorGroup().isShuttingDown()) {
             throw new IllegalStateException("Cannot connect, Event executor group is terminated.");
         }
@@ -257,15 +258,18 @@ public abstract class AbstractRedisClient {
         logger.debug("Connecting to Redis at {}", redisAddress);
 
         CompletableFuture<Channel> channelReadyFuture = new CompletableFuture<>();
+
+        //获取bootstrap
         Bootstrap redisBootstrap = connectionBuilder.bootstrap();
-
+        //创建redis通道初始化器
         RedisChannelInitializer initializer = connectionBuilder.build();
+        //设置netty的处理器
         redisBootstrap.handler(initializer);
-
+        //netty自定设置处理
         clientResources.nettyCustomizer().afterBootstrapInitialized(redisBootstrap);
         CompletableFuture<Boolean> initFuture = initializer.channelInitialized();
         ChannelFuture connectFuture = redisBootstrap.connect(redisAddress);
-
+        //增加监听器
         connectFuture.addListener(future -> {
 
             if (!future.isSuccess()) {
