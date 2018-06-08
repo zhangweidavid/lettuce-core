@@ -33,6 +33,7 @@ import io.lettuce.core.api.StatefulRedisConnection;
  */
 class AsyncConnections {
 
+    //异步连接缓存
     private final Map<RedisURI, CompletableFuture<StatefulRedisConnection<String, String>>> futures = new TreeMap<>(
             MasterSlaveUtils.RedisURIComparator.INSTANCE);
 
@@ -40,16 +41,14 @@ class AsyncConnections {
     }
 
     /**
-     * Add a connection for a {@link RedisURI}
-     *
-     * @param redisURI
-     * @param connection
+     * 为指定的RedisURI添加一个连接
      */
     public void addConnection(RedisURI redisURI, CompletableFuture<StatefulRedisConnection<String, String>> connection) {
         futures.put(redisURI, connection);
     }
 
     /**
+     *  获取连接
      * @return the {@link Connections}.
      * @throws RedisConnectionException if no connection could be established.
      */

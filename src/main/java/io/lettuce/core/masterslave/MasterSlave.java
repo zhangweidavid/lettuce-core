@@ -30,11 +30,10 @@ import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 
 /**
- * Master-Slave connection API.
+ * 主备连接API
  * <p>
- * This API allows connections to Redis Master/Slave setups which run either in a static Master/Slave setup or are managed by
- * Redis Sentinel. Master-Slave connections can discover topologies and select a source for read operations using
- * {@link io.lettuce.core.ReadFrom}.
+ * 该API允许连接到以静态主备设置或哨兵管理的运行的Redis主节点或备节点
+ * 主备连接可以发现拓扑和为读操作使用ReadFrom选取一个资源
  * </p>
  * <p>
  *
@@ -110,7 +109,7 @@ public class MasterSlave {
         //如果是sentinel模式
         if (isSentinel(redisURI)) {
             return connectSentinel(redisClient, codec, redisURI);
-        } else {
+        } else {//不是哨兵模式则使用静态主备方式建立连接
             return connectMasterSlave(redisClient, codec, redisURI);
         }
     }
@@ -208,35 +207,41 @@ public class MasterSlave {
 
     private static <K, V> StatefulRedisMasterSlaveConnection<K, V> connectMasterSlave(RedisClient redisClient,
             RedisCodec<K, V> codec, RedisURI redisURI) {
-
+        //初始化连接
         Map<RedisURI, StatefulRedisConnection<K, V>> initialConnections = new HashMap<>();
 
         try {
-
+            //创建连接
             StatefulRedisConnection<K, V> nodeConnection = redisClient.connect(codec, redisURI);
+            //添加到初始化连接中
             initialConnections.put(redisURI, nodeConnection);
-
+            //创建主备拓扑提供者
             TopologyProvider topologyProvider = new MasterSlaveTopologyProvider(nodeConnection, redisURI);
-
+            //从主备拓扑提供者中获取已知节点
             List<RedisNodeDescription> nodes = topologyProvider.getNodes();
+            //获取当前redisURI的node
             RedisNodeDescription node = getConnectedNode(redisURI, nodes);
-
+             //如果这个节点不是master
             if (node.getRole() != RedisInstance.Role.MASTER) {
-
+                //查找master节点
                 RedisNodeDescription master = lookupMaster(nodes);
+                //连接到master节点
                 nodeConnection = redisClient.connect(codec, master.getUri());
+                //添加到初始化连接池中
                 initialConnections.put(master.getUri(), nodeConnection);
+                //针对主节点创建拓扑提供器
                 topologyProvider = new MasterSlaveTopologyProvider(nodeConnection, master.getUri());
             }
-
+            //创建主备节点刷新服务
             MasterSlaveTopologyRefresh refresh = new MasterSlaveTopologyRefresh(redisClient, topologyProvider);
             MasterSlaveConnectionProvider<K, V> connectionProvider = new MasterSlaveConnectionProvider<>(redisClient, codec,
                     redisURI, initialConnections);
-
+            //获取刷新器中到已知节点
             connectionProvider.setKnownNodes(refresh.getNodes(redisURI));
-
+            //创建主备通道写入器
             MasterSlaveChannelWriter<K, V> channelWriter = new MasterSlaveChannelWriter<>(connectionProvider);
 
+            //创建主备连接器
             StatefulRedisMasterSlaveConnectionImpl<K, V> connection = new StatefulRedisMasterSlaveConnectionImpl<>(
                     channelWriter, codec, redisURI.getTimeout());
 

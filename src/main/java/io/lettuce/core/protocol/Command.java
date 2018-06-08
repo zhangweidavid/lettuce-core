@@ -113,7 +113,7 @@ public class Command<K, V, T> implements RedisCommand<K, V, T> {
         CommandArgs.IntegerArgument.writeInteger(buf, 1 + (args != null ? args.count() : 0));
         //写入分割符
         buf.writeBytes(CommandArgs.CRLF);
-        //写入命令
+        //写入命令入GET
         CommandArgs.BytesArgument.writeBytes(buf, type.getBytes());
         //如果参数不为空则写入参数
         if (args != null) {

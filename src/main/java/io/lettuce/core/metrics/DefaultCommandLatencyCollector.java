@@ -42,7 +42,7 @@ import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 
 /**
- * Default implementation of a {@link CommandLatencyCollector} for command latencies.
+ * 默认延迟命令收集器
  *
  * @author Mark Paluch
  */
@@ -91,7 +91,6 @@ public class DefaultCommandLatencyCollector implements CommandLatencyCollector {
 
     /**
      * Record the command latency per {@code connectionPoint} and {@code commandType}.
-     *
      * @param local the local address
      * @param remote the remote address
      * @param commandType the command type
@@ -166,7 +165,7 @@ public class DefaultCommandLatencyCollector implements CommandLatencyCollector {
         for (Map.Entry<CommandLatencyId, Latencies> entry : latencyMetrics.entrySet()) {
 
             Latencies latencies = entry.getValue();
-
+            //获取第一个响应的柱状图
             Histogram firstResponse = latencies.getFirstResponseHistogram();
             Histogram completion = latencies.getCompletionHistogram();
 

@@ -22,7 +22,6 @@ import io.lettuce.core.metrics.CommandLatencyId;
 import io.lettuce.core.metrics.CommandMetrics;
 
 /**
- * Event that transports command latency metrics. This event carries latencies for multiple commands and connections.
  * 传输命令延迟指标的事件。 此事件包含多个命令和连接的延迟。
  * @author Mark Paluch
  */

@@ -19,15 +19,17 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Latency metrics for commands. This class provides the count, time unit and firstResponse/completion latencies.
- *
+ * 命令的延迟度量
  * @author Mark Paluch
  */
 public class CommandMetrics {
+    //数量
     private final long count;
+    //事件单位
     private final TimeUnit timeUnit;
-
+    //第一个响应
     private final CommandLatency firstResponse;
+    //最后一个响应
     private final CommandLatency completion;
 
     public CommandMetrics(long count, TimeUnit timeUnit, CommandLatency firstResponse, CommandLatency completion) {

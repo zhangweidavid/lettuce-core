@@ -376,13 +376,15 @@ public class CommandArgs<K, V> {
         }
 
         static void writeBytes(ByteBuf buffer, byte[] value) {
-
+             //写入'$'
             buffer.writeByte('$');
-
+            //写入长度
             IntegerArgument.writeInteger(buffer, value.length);
+            //写入\r\n
             buffer.writeBytes(CRLF);
-
+            //写入value
             buffer.writeBytes(value);
+            //写入\r\n
             buffer.writeBytes(CRLF);
         }
 
@@ -576,15 +578,17 @@ public class CommandArgs<K, V> {
         }
 
         static void writeString(ByteBuf target, String value) {
-
+            //写入$
             target.writeByte('$');
-
+            //写入长度
             IntegerArgument.writeInteger(target, value.length());
+            //写入\r\n
             target.writeBytes(CRLF);
-
+            //写入字符
             for (int i = 0; i < value.length(); i++) {
                 target.writeByte((byte) value.charAt(i));
             }
+            //写入\r\n
             target.writeBytes(CRLF);
         }
 

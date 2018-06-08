@@ -19,14 +19,13 @@ import java.time.Duration;
 
 /**
  * Configuration interface for command latency collection.
- *
+ * 命令延迟收集的配置接口
  * @author Mark Paluch
  */
 public interface EventPublisherOptions {
 
     /**
-     * Returns the interval for emit metrics.
-     *
+     *  返回发送指标的间隔
      * @return the interval for emit metrics
      */
     Duration eventEmitInterval();

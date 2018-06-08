@@ -175,9 +175,11 @@ public class DefaultClientResources implements ClientResources {
         } else {
             eventBus = builder.eventBus;
         }
-
+        //如果命令延迟收集器为null
         if (builder.commandLatencyCollector == null) {
+            //如果默认命令延迟收集器可用
             if (DefaultCommandLatencyCollector.isAvailable()) {
+                //如果命令延迟收集器选项不为null
                 if (builder.commandLatencyCollectorOptions != null) {
                     commandLatencyCollector = new DefaultCommandLatencyCollector(builder.commandLatencyCollectorOptions);
                 } else {

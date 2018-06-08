@@ -24,17 +24,18 @@ import io.netty.util.concurrent.EventExecutorGroup;
 import io.netty.util.concurrent.ScheduledFuture;
 
 /**
- * Default implementation of a {@link CommandLatencyCollector} for command latencies.
+ * 默认命令延迟事件发射器
  *
- * @author Mark Paluch
  */
 public class DefaultCommandLatencyEventPublisher implements MetricEventPublisher {
 
     private final EventExecutorGroup eventExecutorGroup;
     private final EventPublisherOptions options;
+    //事件总线
     private final EventBus eventBus;
+    //命令延迟收集器
     private final CommandLatencyCollector commandLatencyCollector;
-
+    //发射器
     private final Runnable EMITTER = this::emitMetricsEvent;
 
     private volatile ScheduledFuture<?> scheduledFuture;
@@ -46,8 +47,9 @@ public class DefaultCommandLatencyEventPublisher implements MetricEventPublisher
         this.options = options;
         this.eventBus = eventBus;
         this.commandLatencyCollector = commandLatencyCollector;
-
+        //事件发射间隔不为0
         if (!options.eventEmitInterval().isZero()) {
+            //固定间隔发送指标事件
             scheduledFuture = this.eventExecutorGroup.scheduleAtFixedRate(EMITTER, options.eventEmitInterval().toMillis(),
                     options.eventEmitInterval().toMillis(), TimeUnit.MILLISECONDS);
         }
@@ -55,6 +57,7 @@ public class DefaultCommandLatencyEventPublisher implements MetricEventPublisher
 
     @Override
     public boolean isEnabled() {
+        //指标间隔不为0
         return !options.eventEmitInterval().isZero() && scheduledFuture != null;
     }
 
