@@ -28,8 +28,9 @@ import io.netty.util.concurrent.ScheduledFuture;
  *
  */
 public class DefaultCommandLatencyEventPublisher implements MetricEventPublisher {
-
+    //事件处理线程池
     private final EventExecutorGroup eventExecutorGroup;
+    //事件发射选项
     private final EventPublisherOptions options;
     //事件总线
     private final EventBus eventBus;
@@ -76,7 +77,7 @@ public class DefaultCommandLatencyEventPublisher implements MetricEventPublisher
         if (!isEnabled() || !commandLatencyCollector.isEnabled()) {
             return;
         }
-        //发送度量
+        //发送命令延迟测试事件
         eventBus.publish(new CommandLatencyEvent(commandLatencyCollector.retrieveMetrics()));
     }
 

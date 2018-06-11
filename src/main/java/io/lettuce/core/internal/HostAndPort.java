@@ -18,8 +18,7 @@ package io.lettuce.core.internal;
 import io.lettuce.core.LettuceStrings;
 
 /**
- * An immutable representation of a host and port.
- *
+ * IP端口对象
  * @author Mark Paluch
  * @since 4.2
  */

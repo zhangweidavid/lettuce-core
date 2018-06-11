@@ -85,11 +85,11 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
     private boolean pristine;
 
     /**
-     * Initialize a new instance that handles commands from the supplied queue.
+     * 初始化一个处理处理来自队列的命令
      *
-     * @param clientOptions client options for this connection, must not be {@literal null}
+     * @param clientOptions   client options for this connection, must not be {@literal null}
      * @param clientResources client resources for this connection, must not be {@literal null}
-     * @param endpoint must not be {@literal null}.
+     * @param endpoint        must not be {@literal null}.
      */
     public CommandHandler(ClientOptions clientOptions, ClientResources clientResources, Endpoint endpoint) {
 
@@ -320,7 +320,7 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
 
     /**
      * @see io.netty.channel.ChannelDuplexHandler#write(io.netty.channel.ChannelHandlerContext, java.lang.Object,
-     *      io.netty.channel.ChannelPromise)
+     * io.netty.channel.ChannelPromise)
      */
     @Override
     @SuppressWarnings("unchecked")
@@ -330,21 +330,22 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
             logger.debug("{} write(ctx, {}, promise)", logPrefix(), msg);
         }
 
+        //如果msg实现了RedisCommand接口就表示发送单个命令
         if (msg instanceof RedisCommand) {
             writeSingleCommand(ctx, (RedisCommand<?, ?, ?>) msg, promise);
             return;
         }
-
+        //如果实现了List接口就表示批量发送命令
         if (msg instanceof List) {
 
             List<RedisCommand<?, ?, ?>> batch = (List<RedisCommand<?, ?, ?>>) msg;
-
+            //如果集合长度为1 还是执行发送单个命令
             if (batch.size() == 1) {
 
                 writeSingleCommand(ctx, batch.get(0), promise);
                 return;
             }
-
+            //批处理
             writeBatch(ctx, batch, promise);
             return;
         }
@@ -354,14 +355,13 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
         }
     }
 
-    private void writeSingleCommand(ChannelHandlerContext ctx, RedisCommand<?, ?, ?> command, ChannelPromise promise)
- {
+    private void writeSingleCommand(ChannelHandlerContext ctx, RedisCommand<?, ?, ?> command, ChannelPromise promise) {
 
         if (!isWriteable(command)) {
             promise.trySuccess();
             return;
         }
-
+        //入队
         addToStack(command, promise);
         ctx.write(command, promise);
     }
@@ -448,22 +448,27 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
         return !command.isDone();
     }
 
+    /**
+     * 可能包装为延迟测量命令
+     *
+     */
     private RedisCommand<?, ?, ?> potentiallyWrapLatencyCommand(RedisCommand<?, ?, ?> command) {
 
+        //如果延迟测量不可用则直接返回
         if (!latencyMetricsEnabled) {
             return command;
         }
-
+        //如果当前命令就是延迟命令
         if (command instanceof WithLatency) {
 
             WithLatency withLatency = (WithLatency) command;
-
+            //重置数据
             withLatency.firstResponse(-1);
             withLatency.sent(nanoTime());
 
             return command;
         }
-
+        //创建延迟测量命令并设置初始化数据
         LatencyMeteredCommand<?, ?, ?> latencyMeteredCommand = new LatencyMeteredCommand<>(command);
         latencyMeteredCommand.firstResponse(-1);
         latencyMeteredCommand.sent(nanoTime());
@@ -512,30 +517,33 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
     }
 
     protected void decode(ChannelHandlerContext ctx, ByteBuf buffer) throws InterruptedException {
-
+          //如果pristine为true，命令队列为空且buffer是可读的，则需要使用回退命令消耗这个响应
         if (pristine && stack.isEmpty() && buffer.isReadable()) {
 
             if (debugEnabled) {
                 logger.debug("{} Received response without a command context (empty stack)", logPrefix());
             }
-
+            //如果耗尽响应失败则将pristine设置为false
             if (consumeResponse(buffer)) {
                 pristine = false;
             }
 
             return;
         }
+        //如果命令队列中存在命令或pristine为false或buffer不可读
 
+        //while中只处理命令不为空且buffer可读
         while (canDecode(buffer)) {
-
+             //出对
             RedisCommand<?, ?, ?> command = stack.peek();
             if (debugEnabled) {
                 logger.debug("{} Stack contains: {} commands", logPrefix(), stack.size());
             }
-
+            //设置pristine为false
             pristine = false;
 
             try {
+                //如果解码失败则返回
                 if (!decode(ctx, buffer, command)) {
                     return;
                 }
@@ -548,21 +556,23 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
             if (isProtectedMode(command)) {
                 onProtectedMode(command.getOutput().getError());
             } else {
-
+                   //是否可以结束命令处理
                 if (canComplete(command)) {
+                    //如果可以则将命令从队列中删除
                     stack.poll();
 
                     try {
+                        //结束命令
                         complete(command);
                     } catch (Exception e) {
                         logger.warn("{} Unexpected exception during request: {}", logPrefix, e.toString(), e);
                     }
                 }
             }
-
+            //解码后置处理
             afterDecode(ctx, command);
         }
-
+           //如果buffer引用数量不为0则抛弃可读字节
         if (buffer.refCnt() != 0) {
             buffer.discardReadBytes();
         }
@@ -599,18 +609,19 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
     }
 
     private boolean decode(ChannelHandlerContext ctx, ByteBuf buffer, RedisCommand<?, ?, ?> command) {
-
+        //如果延迟测量可用且命令实现了WithLatency接口
         if (latencyMetricsEnabled && command instanceof WithLatency) {
-
+            //类型强转
             WithLatency withLatency = (WithLatency) command;
+            //如果第一个响应时间不为-1则设置当前时间（纳秒）为第一个响应时间
             if (withLatency.getFirstResponse() == -1) {
                 withLatency.firstResponse(nanoTime());
             }
-
+            //开始解码，如果解码失败则返回，不记录延迟测量数据
             if (!decode0(ctx, buffer, command)) {
                 return false;
             }
-
+            //记录延迟数据
             recordLatency(withLatency, command.getType());
 
             return true;
@@ -620,9 +631,9 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
     }
 
     private boolean decode0(ChannelHandlerContext ctx, ByteBuf buffer, RedisCommand<?, ?, ?> command) {
-
+            //如果解码失败
         if (!decode(buffer, command, getCommandOutput(command))) {
-
+            //如果命令是Sink命令
             if (command instanceof DemandAware.Sink) {
 
                 DemandAware.Sink sink = (DemandAware.Sink) command;
@@ -657,34 +668,33 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
     }
 
     protected boolean decode(ByteBuf buffer, RedisCommand<?, ?, ?> command, CommandOutput<?, ?, ?> output) {
+        //使用Redis状态机进行解码
         return rsm.decode(buffer, command, output);
     }
 
     /**
-     * Consume a response without having a command on the stack.
-     *
-     * @param buffer
-     * @return {@literal true} if the buffer decode was successful. {@literal false} if the buffer was not decoded.
+     * 耗尽一个队列中不存在命令的响应
+     *如果buffer解码成功则返回true,否则返回false
      */
     private boolean consumeResponse(ByteBuf buffer) {
-
+        //获取退回命令
         PristineFallbackCommand command = this.fallbackCommand;
-
+        //如果退回命令为null或者未处理结束
         if (command == null || !command.isDone()) {
 
             if (debugEnabled) {
                 logger.debug("{} Consuming response using FallbackCommand", logPrefix());
             }
-
+            //如果退回命令为null则创建一个新的原始的退回命令
             if (command == null) {
                 command = new PristineFallbackCommand();
                 this.fallbackCommand = command;
             }
-
+            //使用退回命令解码buffer
             if (!decode(buffer, command.getOutput())) {
                 return false;
             }
-
+            //
             if (isProtectedMode(command)) {
                 onProtectedMode(command.getOutput().getError());
             }
@@ -693,6 +703,7 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
         return true;
     }
 
+    //是否是保护模式
     private boolean isProtectedMode(RedisCommand<?, ?, ?> command) {
         return command != null && command.getOutput() != null && command.getOutput().hasError()
                 && RedisConnectionException.isProtectedMode(command.getOutput().getError());
@@ -722,12 +733,13 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
     }
 
     private void recordLatency(WithLatency withLatency, ProtocolKeyword commandType) {
-
+        //如果withLatency不为null且命令延迟收集器可用同时channel和remote()不为null
         if (withLatency != null && clientResources.commandLatencyCollector().isEnabled() && channel != null && remote() != null) {
-
+            //第一个响应延迟等于第一个响应时间减去发送时间
             long firstResponseLatency = withLatency.getFirstResponse() - withLatency.getSent();
+            //结束时间为当前时间减去发送时间
             long completionLatency = nanoTime() - withLatency.getSent();
-
+            //使用延迟收集器记录数据
             clientResources.commandLatencyCollector().recordCommandLatency(local(), remote(), commandType,
                     firstResponseLatency, completionLatency);
         }
@@ -789,6 +801,9 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
         return System.nanoTime();
     }
 
+    /**
+     * 生命周期状态： 未连接，已注册，已连接等
+     */
     public enum LifecycleState {
         NOT_CONNECTED, REGISTERED, CONNECTED, ACTIVATING, ACTIVE, DISCONNECTED, DEACTIVATING, DEACTIVATED, CLOSED,
     }

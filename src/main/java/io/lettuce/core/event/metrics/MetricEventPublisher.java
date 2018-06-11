@@ -18,15 +18,14 @@ package io.lettuce.core.event.metrics;
 import io.lettuce.core.event.Event;
 
 /**
- * Event publisher which publishes metrics by the use of {@link Event events}.
- *
+ *  发射测试事件的发射器
  * @author Mark Paluch
  * @since 3.4
  */
 public interface MetricEventPublisher {
 
     /**
-     * Emit immediately a metrics event.
+     * 立即发射一个测量事件
      */
     void emitMetricsEvent();
 

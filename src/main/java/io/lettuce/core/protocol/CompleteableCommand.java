@@ -27,9 +27,7 @@ import java.util.function.Consumer;
 public interface CompleteableCommand<T> {
 
     /**
-     * Register a command callback for command completion that notifies the callback with the command result or the failure
-     * resulting from command completion.
-     *
+     * 注册命令处理结束的回调，使用命令结果或错误信息通知回调方法
      * @param action must not be {@literal null}.
      */
     void onComplete(Consumer<? super T> action);

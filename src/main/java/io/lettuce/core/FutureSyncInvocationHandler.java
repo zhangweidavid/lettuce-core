@@ -49,17 +49,19 @@ class FutureSyncInvocationHandler extends AbstractInvocationHandler {
         try {
 
             Method targetMethod = this.translator.get(method);
+            //调用异步接口
             Object result = targetMethod.invoke(asyncApi, args);
-
+            //如果返回结果是RedisFuture类型
             if (result instanceof RedisFuture<?>) {
-
+               //类型强转
                 RedisFuture<?> command = (RedisFuture<?>) result;
 
                 if (isNonTxControlMethod(method.getName()) && isTransactionActive(connection)) {
                     return null;
                 }
-
+                //等待超时或取消
                 LettuceFutures.awaitOrCancel(command, connection.getTimeout().toNanos(), TimeUnit.NANOSECONDS);
+               //返回结果
                 return command.get();
             }
 

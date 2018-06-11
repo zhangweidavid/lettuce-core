@@ -16,16 +16,13 @@
 package io.lettuce.core.protocol;
 
 /**
- * A decorated command allowing access to the underlying {@link #getDelegate()}.
- *
+ * 装饰命令，允许通过getDelegate获取下一个命令
  * @author Mark Paluch
  */
 public interface DecoratedCommand<K, V, T> {
 
     /**
-     * The underlying command.
-     *
-     * @return never {@literal null}.
+     * 获取下一个命令
      */
     RedisCommand<K, V, T> getDelegate();
 

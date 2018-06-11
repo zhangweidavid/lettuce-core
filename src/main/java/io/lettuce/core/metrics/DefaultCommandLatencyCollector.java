@@ -53,6 +53,7 @@ public class DefaultCommandLatencyCollector implements CommandLatencyCollector {
 
     private static final boolean LATENCY_UTILS_AVAILABLE = isPresent("org.LatencyUtils.PauseDetector");
     private static final boolean HDR_UTILS_AVAILABLE = isPresent("org.HdrHistogram.Histogram");
+
     private static final PauseDetectorWrapper GLOBAL_PAUSE_DETECTOR = PauseDetectorWrapper.create();
 
     private static final long MIN_LATENCY = 1000;
@@ -67,6 +68,7 @@ public class DefaultCommandLatencyCollector implements CommandLatencyCollector {
             createNewLatencyMap());
 
     private volatile boolean stopped;
+    //创建延迟统计的工厂方法
     private final Function<CommandLatencyId, Latencies> createLatencies;
 
     public DefaultCommandLatencyCollector(CommandLatencyCollectorOptions options) {
@@ -79,6 +81,7 @@ public class DefaultCommandLatencyCollector implements CommandLatencyCollector {
                     PAUSE_DETECTOR_UPDATER.get(this).retain();
                 }
             }
+            //获取暂停探测器
             PauseDetector pauseDetector = ((DefaultPauseDetectorWrapper) PAUSE_DETECTOR_UPDATER.get(this)).getPauseDetector();
 
             if (options.resetLatenciesAfterEvent()) {
@@ -91,11 +94,11 @@ public class DefaultCommandLatencyCollector implements CommandLatencyCollector {
 
     /**
      * Record the command latency per {@code connectionPoint} and {@code commandType}.
-     * @param local the local address
-     * @param remote the remote address
-     * @param commandType the command type
-     * @param firstResponseLatency latency value in {@link TimeUnit#NANOSECONDS} from send to the first response
-     * @param completionLatency latency value in {@link TimeUnit#NANOSECONDS} from send to the command completion
+     * @param local 本地地址
+     * @param remote 远程地址
+     * @param commandType 命令类型
+     * @param firstResponseLatency 从发送到第一个响应到延迟毫秒值
+     * @param completionLatency 从发送到完成的延迟毫秒值
      */
     public void recordCommandLatency(SocketAddress local, SocketAddress remote, ProtocolKeyword commandType,
             long firstResponseLatency, long completionLatency) {
@@ -103,13 +106,20 @@ public class DefaultCommandLatencyCollector implements CommandLatencyCollector {
         if (!isEnabled()) {
             return;
         }
-
+        //从缓存中获取，如果没有就创建一个新的
         Latencies latencies = latencyMetricsRef.get().computeIfAbsent(createId(local, remote, commandType), createLatencies);
-
+        //记录数据
         latencies.firstResponse.recordLatency(rangify(firstResponseLatency));
         latencies.completion.recordLatency(rangify(completionLatency));
     }
 
+    /**
+     * 创建ID
+     * @param local 本地地址
+     * @param remote 远程地址
+     * @param commandType 命令类型
+     * @return
+     */
     private CommandLatencyId createId(SocketAddress local, SocketAddress remote, ProtocolKeyword commandType) {
         return CommandLatencyId.create(options.localDistinction() ? local : LocalAddress.ANY, remote, commandType);
     }
@@ -139,6 +149,10 @@ public class DefaultCommandLatencyCollector implements CommandLatencyCollector {
         }
     }
 
+    /**
+     * 取回测量数据
+     * @return
+     */
     @Override
     public Map<CommandLatencyId, CommandMetrics> retrieveMetrics() {
 
@@ -165,10 +179,11 @@ public class DefaultCommandLatencyCollector implements CommandLatencyCollector {
         for (Map.Entry<CommandLatencyId, Latencies> entry : latencyMetrics.entrySet()) {
 
             Latencies latencies = entry.getValue();
-            //获取第一个响应的柱状图
+            //获取第一个响应的直方图
             Histogram firstResponse = latencies.getFirstResponseHistogram();
+            //获取完成响应到直方图
             Histogram completion = latencies.getCompletionHistogram();
-
+            //如果在测量时间范围内记录数量为0则不处理
             if (firstResponse.getTotalCount() == 0 && completion.getTotalCount() == 0) {
                 continue;
             }
@@ -176,6 +191,7 @@ public class DefaultCommandLatencyCollector implements CommandLatencyCollector {
             CommandLatency firstResponseLatency = getMetric(firstResponse);
             CommandLatency completionLatency = getMetric(completion);
 
+            //创建命令测量对象
             CommandMetrics metrics = new CommandMetrics(firstResponse.getTotalCount(), options.targetUnit(),
                     firstResponseLatency, completionLatency);
 
@@ -186,18 +202,25 @@ public class DefaultCommandLatencyCollector implements CommandLatencyCollector {
     }
 
     private CommandLatency getMetric(Histogram histogram) {
-
+        //百分位数统计，百分位数是统计学术语，将一组数据从小到大排列，则一个百分位对应的数据就称之为这个百分位的百分位数
         Map<Double, Long> percentiles = getPercentiles(histogram);
-
+        //获取时间单位
         TimeUnit timeUnit = options.targetUnit();
         return new CommandLatency(timeUnit.convert(histogram.getMinValue(), TimeUnit.NANOSECONDS), timeUnit.convert(
                 histogram.getMaxValue(), TimeUnit.NANOSECONDS), percentiles);
     }
 
+    /**
+     * 获取百分位数统计结果
+     * @param histogram
+     * @return
+     */
     private Map<Double, Long> getPercentiles(Histogram histogram) {
 
         Map<Double, Long> percentiles = new TreeMap<Double, Long>();
+        //遍历延迟统计目标的百分数
         for (double targetPercentile : options.targetPercentiles()) {
+            //获取应百分数对应的耗时，添加到百分位数统计表中
             percentiles.put(targetPercentile,
                     options.targetUnit().convert(histogram.getValueAtPercentile(targetPercentile), TimeUnit.NANOSECONDS));
         }
@@ -206,9 +229,7 @@ public class DefaultCommandLatencyCollector implements CommandLatencyCollector {
     }
 
     /**
-     * Returns {@literal true} if HdrUtils and LatencyUtils are available on the class path.
-     *
-     * @return
+     * 如果HdrUtils和LatencyUtils在classpath下是有效的就返回true
      */
     public static boolean isAvailable() {
         return LATENCY_UTILS_AVAILABLE && HDR_UTILS_AVAILABLE;
@@ -248,10 +269,11 @@ public class DefaultCommandLatencyCollector implements CommandLatencyCollector {
     }
 
     private static class Latencies {
-
+        //第一个响应延迟监听
         private final LatencyStats firstResponse;
+        //完成
         private final LatencyStats completion;
-
+        //
         Latencies(PauseDetector pauseDetector) {
             firstResponse = LatencyStats.Builder.create().pauseDetector(pauseDetector).build();
             completion = LatencyStats.Builder.create().pauseDetector(pauseDetector).build();
@@ -266,7 +288,9 @@ public class DefaultCommandLatencyCollector implements CommandLatencyCollector {
         }
 
         public void stop() {
+            //第一个响应统计停止
             firstResponse.stop();
+            //完成统计停止
             completion.stop();
         }
     }

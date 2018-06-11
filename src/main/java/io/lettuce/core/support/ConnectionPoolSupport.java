@@ -38,6 +38,7 @@ import io.lettuce.core.internal.AbstractInvocationHandler;
 import io.lettuce.core.internal.LettuceAssert;
 
 /**
+ *  支持GenericObjectPool和SoftReferenceObjectPool的连接池。连接池创建要求有一个创建Redis连接的提供者。连接池可以分配，包装或跳转连接
  * Connection pool support for {@link GenericObjectPool} and {@link SoftReferenceObjectPool}. Connection pool creation requires
  * a {@link Supplier} that creates Redis connections. The pool can allocate either wrapped or direct connections.
  * <ul>
@@ -121,6 +122,7 @@ public abstract class ConnectionPoolSupport {
 
             @Override
             public T borrowObject() throws Exception {
+                //如果wrapConnection 设置为true,则对连接创建动态代理
                 return wrapConnections ? wrapConnection(super.borrowObject(), this) : super.borrowObject();
             }
 
@@ -195,16 +197,18 @@ public abstract class ConnectionPoolSupport {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     private static <T> T wrapConnection(T connection, ObjectPool<T> pool) {
 
+        //创建调用处理器
         ReturnObjectOnCloseInvocationHandler<T> handler = new ReturnObjectOnCloseInvocationHandler<T>(connection, pool);
 
         Class<?>[] implementedInterfaces = connection.getClass().getInterfaces();
         Class[] interfaces = new Class[implementedInterfaces.length + 1];
         interfaces[0] = HasTargetConnection.class;
         System.arraycopy(implementedInterfaces, 0, interfaces, 1, implementedInterfaces.length);
-
+        //创建代理连接
         T proxiedConnection = (T) Proxy.newProxyInstance(connection.getClass().getClassLoader(), interfaces, handler);
+        //向连接调用处理器设置代理连接
         handler.setProxiedConnection(proxiedConnection);
-
+        //返回代理连接
         return proxiedConnection;
     }
 
@@ -249,11 +253,11 @@ public abstract class ConnectionPoolSupport {
      * @since 4.3
      */
     private static class ReturnObjectOnCloseInvocationHandler<T> extends AbstractInvocationHandler {
-
+        //被代理对连接
         private T connection;
         private T proxiedConnection;
         private Map<Method, Object> connectionProxies = new ConcurrentHashMap<>(5, 1);
-
+        //连接池
         private final ObjectPool<T> pool;
 
         ReturnObjectOnCloseInvocationHandler(T connection, ObjectPool<T> pool) {
@@ -261,25 +265,26 @@ public abstract class ConnectionPoolSupport {
             this.pool = pool;
         }
 
+        //设置代理连接
         void setProxiedConnection(T proxiedConnection) {
             this.proxiedConnection = proxiedConnection;
         }
 
         @Override
         protected Object handleInvocation(Object proxy, Method method, Object[] args) throws Throwable {
-
+             //如果调用方法是  getStatefulConnection则返回代理连接
             if (method.getName().equals("getStatefulConnection")) {
                 return proxiedConnection;
             }
-
+            //如果调用的方法是getTargetConnection 则返回真实连接
             if (method.getName().equals("getTargetConnection")) {
                 return connection;
             }
-
+            //如果真实连接为null则抛出异常
             if (connection == null) {
                 throw new RedisException("Connection is deallocated and cannot be used anymore.");
             }
-
+            //如果调用的方法是close则将代理连接归还到连接池，并将真实连接设置和代理连接设置为null
             if (method.getName().equals("close")) {
                 pool.returnObject(proxiedConnection);
                 connection = null;
@@ -289,13 +294,12 @@ public abstract class ConnectionPoolSupport {
             }
 
             try {
-
+                //如果调用方法是获取连接则从代理连接池中获取，如果没有则创建代理连接并放入缓存
                 if (method.getName().equals("sync") || method.getName().equals("async") || method.getName().equals("reactive")) {
                     return connectionProxies.computeIfAbsent(
-                            method,
- m -> getInnerProxy(method, args));
+                            method, m -> getInnerProxy(method, args));
                 }
-
+                //其它方法不在多任何拦截
                 return method.invoke(connection, args);
 
             } catch (InvocationTargetException e) {

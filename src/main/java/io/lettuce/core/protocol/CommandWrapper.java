@@ -22,7 +22,7 @@ import io.lettuce.core.output.CommandOutput;
 import io.netty.buffer.ByteBuf;
 
 /**
- * Wrapper for a command.
+ * 命令包装器
  *
  * @author Mark Paluch
  */
@@ -35,6 +35,7 @@ public class CommandWrapper<K, V, T> implements RedisCommand<K, V, T>, Completea
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private final static Consumer<?>[] EMPTY = new Consumer[0];
 
+    //下一个命令
     protected final RedisCommand<K, V, T> command;
 
     // accessed via AtomicReferenceFieldUpdater.

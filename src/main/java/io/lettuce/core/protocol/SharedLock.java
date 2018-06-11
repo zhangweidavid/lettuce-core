@@ -21,6 +21,7 @@ import java.util.function.Supplier;
 import io.lettuce.core.internal.LettuceAssert;
 
 /**
+ * 支持共享锁和独占锁的共享锁门面
  * Shared locking facade that supports shared and exclusive locking.
  * <p>
  * Multiple shared locks (writers) are allowed concurrently to process their work. If an exclusive lock is requested, the
@@ -33,19 +34,20 @@ import io.lettuce.core.internal.LettuceAssert;
  * @author Mark Paluch
  */
 class SharedLock {
-
+    //写入器计数器
     private final AtomicLong writers = new AtomicLong();
+    //持有独占锁的线程
     private volatile Thread exclusiveLockOwner;
 
     /**
      * Wait for stateLock and increment writers. Will wait if stateLock is locked and if writer counter is negative.
      */
     void incrementWriters() {
-
+        //如果当前线程就是持有独占锁的线程是锁重入，则不需要进行writer计数自增
         if (exclusiveLockOwner == Thread.currentThread()) {
             return;
         }
-
+        //自旋完成计数自增
         synchronized (this) {
             for (;;) {
 
@@ -70,9 +72,7 @@ class SharedLock {
     }
 
     /**
-     * Execute a {@link Runnable} guarded by an exclusive lock.
-     *
-     * @param runnable the runnable, must not be {@literal null}.
+     *使用独占锁模式执行命令
      */
     void doExclusive(Runnable runnable) {
 
@@ -108,16 +108,18 @@ class SharedLock {
     }
 
     /**
+     *
      * Wait for stateLock and no writers. Must be used in an outer {@code synchronized} block to prevent interleaving with other
      * methods using writers. Sets writers to a negative value to create a lock for {@link #incrementWriters()}.
      */
     private void lockWritersExclusive() {
 
+        //如果当前线程就是持有独占锁的线程
         if (exclusiveLockOwner == Thread.currentThread()) {
             writers.decrementAndGet();
             return;
         }
-
+       //如果当前线程不是独占锁的线程，则需要等待所有共享锁都释放
         synchronized (this) {
             for (;;) {
 
@@ -130,7 +132,7 @@ class SharedLock {
     }
 
     /**
-     * Unlock writers.
+     * 解锁独占锁
      */
     private void unlockWritersExclusive() {
 

@@ -20,13 +20,13 @@ import reactor.core.publisher.TopicProcessor;
 import reactor.core.scheduler.Scheduler;
 
 /**
- * Default implementation for an {@link EventBus}. Events are published using a {@link Scheduler}.
  * 默认的事件总线实现
  * @author Mark Paluch
  * @since 3.4
  */
 public class DefaultEventBus implements EventBus {
 
+    //主题处理器，事件总线
     private final TopicProcessor<Event> bus;
     private final Scheduler scheduler;
 
@@ -41,6 +41,9 @@ public class DefaultEventBus implements EventBus {
         return bus.onBackpressureDrop().publishOn(scheduler);
     }
 
+    /**
+     * 通过topProcessor发布一个事件
+     */
     @Override
     public void publish(Event event) {
         bus.onNext(event);

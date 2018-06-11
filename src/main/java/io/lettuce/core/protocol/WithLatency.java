@@ -16,44 +16,38 @@
 package io.lettuce.core.protocol;
 
 /**
- * Interface to items recording a latency. Unit of time depends on the actual implementation.
- *
+ *  记录延迟的接口，时间单位依赖具体实现
  * @author Mark Paluch
  */
 interface WithLatency {
 
 	/**
-	 * Sets the time of sending the item.
-	 * @param time the time of when the item was sent.
+	 * 设置发送时间
      */
 	void sent(long time);
 
 	/**
-	 * Sets the time of the first response.
-	 * @param time the time of the first response.
+	 * 设置第一个响应时间
      */
 	void firstResponse(long time);
 
 	/**
-	 * Set the time of completion.
-	 * @param time the time of completion.
+	 * 设置完成时间
      */
 	void completed(long time);
 
 	/**
-	 * @return the time of when the item was sent.
+	 * 获取发送时间
      */
 	long getSent();
 
 	/**
-	 *
-	 * @return the time of the first response.
+	 * 获取第一个响应时间
      */
 	long getFirstResponse();
 
 	/**
-	 *
-	 * @return the time of completion.
+	 * 获取完成时间
      */
 	long getCompleted();
 

@@ -21,6 +21,7 @@ import io.lettuce.core.cluster.SlotHash;
 import io.lettuce.core.internal.LettuceAssert;
 
 /**
+ *  集群拓扑视图。Partitions实例提供访问Redis集群分区。一个分区表示一个有ID和URI连接关键信息的Redis集群节点
  * Cluster topology view. An instance of {@link Partitions} provides access to the partitions of a Redis Cluster. A partition is
  * represented by a Redis Cluster node that has a {@link RedisClusterNode#getNodeId() nodeId} and
  * {@link RedisClusterNode#getUri() connection point details}.
@@ -69,18 +70,20 @@ public class Partitions implements Collection<RedisClusterNode> {
     }
 
     /**
-     * Retrieve a {@link RedisClusterNode} by its node id.
      *
+     * 根据节点ID查找分区
      * @param nodeId the nodeId
      * @return RedisClusterNode or {@literal null}
      */
     public RedisClusterNode getPartitionByNodeId(String nodeId) {
-
+        //遍历所有节点
         for (RedisClusterNode partition : nodeReadView) {
+            //如果节点ID和指定ID相等则返回
             if (partition.getNodeId().equals(nodeId)) {
                 return partition;
             }
         }
+        //如果不存在指定ID的节点就返回null
         return null;
     }
 

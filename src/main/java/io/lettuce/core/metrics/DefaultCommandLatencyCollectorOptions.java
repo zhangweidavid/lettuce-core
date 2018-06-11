@@ -83,6 +83,7 @@ public class DefaultCommandLatencyCollectorOptions implements CommandLatencyColl
     public static class Builder {
 
         private TimeUnit targetUnit = DEFAULT_TARGET_UNIT;
+        //目标百分数
         private double[] targetPercentiles = DEFAULT_TARGET_PERCENTILES;
         private boolean resetLatenciesAfterEvent = DEFAULT_RESET_LATENCIES_AFTER_EVENT;
         private boolean localDistinction = DEFAULT_LOCAL_DISTINCTION;

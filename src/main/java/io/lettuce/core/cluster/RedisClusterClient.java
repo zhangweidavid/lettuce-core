@@ -143,6 +143,7 @@ public class RedisClusterClient extends AbstractRedisClient {
     private final ClusterTopologyRefresh refresh = new ClusterTopologyRefresh(new NodeConnectionFactoryImpl(), getResources());
     private final ClusterTopologyRefreshScheduler clusterTopologyRefreshScheduler = new ClusterTopologyRefreshScheduler(this,
             getResources());
+    //初始redis uri
     private final Iterable<RedisURI> initialUris;
 
     private Partitions partitions;
@@ -174,7 +175,7 @@ public class RedisClusterClient extends AbstractRedisClient {
         assertSameOptions(redisURIs);
 
         this.initialUris = Collections.unmodifiableList(LettuceLists.newList(redisURIs));
-
+         //根据第一个URI的超时时间作为默认超时时间
         setDefaultTimeout(getFirstUri().getTimeout());
         setOptions(ClusterClientOptions.builder().build());
     }
@@ -495,36 +496,41 @@ public class RedisClusterClient extends AbstractRedisClient {
      * @return a new connection
      */
     <K, V> StatefulRedisClusterConnectionImpl<K, V> connectClusterImpl(RedisCodec<K, V> codec) {
-
+         //如果分区信息为null则初始化分区信息
         if (partitions == null) {
             initializePartitions();
         }
-
+        //如果需要就激活拓扑刷新
         activateTopologyRefreshIfNeeded();
 
         logger.debug("connectCluster(" + initialUris + ")");
-
+        //获取socketAddress提供者
         Supplier<SocketAddress> socketAddressSupplier = getSocketAddressSupplier(TopologyComparators::sortByClientCount);
 
+        //创建默认终端
         DefaultEndpoint endpoint = new DefaultEndpoint(clientOptions);
-
+        //创建集群分布式写入器
         ClusterDistributionChannelWriter clusterWriter = new ClusterDistributionChannelWriter(clientOptions, endpoint,
                 clusterTopologyRefreshScheduler);
+        //创建集群连接提供器
         PooledClusterConnectionProvider<K, V> pooledClusterConnectionProvider = new PooledClusterConnectionProvider<K, V>(this,
                 clusterWriter, codec);
-
+        //设置连接提供器
         clusterWriter.setClusterConnectionProvider(pooledClusterConnectionProvider);
 
+        //创建连接
         StatefulRedisClusterConnectionImpl<K, V> connection = new StatefulRedisClusterConnectionImpl<>(clusterWriter, codec,
                 timeout);
-
+        //设置从Master节点读
         connection.setReadFrom(ReadFrom.MASTER);
+        //设置分区
         connection.setPartitions(partitions);
 
         boolean connected = false;
         RedisException causingException = null;
+        //连接尝试次数
         int connectionAttempts = Math.max(1, partitions.size());
-
+        //
         for (int i = 0; i < connectionAttempts; i++) {
             try {
                 connectStateful(connection, endpoint, getFirstUri(), socketAddressSupplier, () -> new CommandHandler(
@@ -779,7 +785,7 @@ public class RedisClusterClient extends AbstractRedisClient {
      * @return Partitions
      */
     protected Partitions loadPartitions() {
-
+        //获取拓扑刷新信息
         Iterable<RedisURI> topologyRefreshSource = getTopologyRefreshSource();
 
         String message = "Cannot retrieve initial cluster partitions from initial URIs " + topologyRefreshSource;
@@ -826,18 +832,22 @@ public class RedisClusterClient extends AbstractRedisClient {
     }
 
     private void activateTopologyRefreshIfNeeded() {
-
+            //如果客户端选项是集群客户端选项
         if (getOptions() instanceof ClusterClientOptions) {
+            //集群客户端选项类型转换
             ClusterClientOptions options = (ClusterClientOptions) getOptions();
+            //获取拓扑刷新选项
             ClusterTopologyRefreshOptions topologyRefreshOptions = options.getTopologyRefreshOptions();
-
+            //如果定期刷新选项设置为false或已经刷新则直接返回
             if (!topologyRefreshOptions.isPeriodicRefreshEnabled() || clusterTopologyRefreshActivated.get()) {
                 return;
             }
-
+            //CAS 更新已经刷新状态
             if (clusterTopologyRefreshActivated.compareAndSet(false, true)) {
+                //定期执行刷新
                 ScheduledFuture<?> scheduledFuture = genericWorkerPool.scheduleAtFixedRate(clusterTopologyRefreshScheduler,
                         options.getRefreshPeriod().toNanos(), options.getRefreshPeriod().toNanos(), TimeUnit.NANOSECONDS);
+                //将结果添加到clusterTopologyRefreshFuture中
                 clusterTopologyRefreshFuture.set(scheduledFuture);
             }
         }

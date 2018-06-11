@@ -22,8 +22,7 @@ import java.lang.reflect.Proxy;
 import java.util.*;
 
 /**
- * Abstract base class for invocation handlers.
- *
+ * 抽象对调用处理器
  * @since 4.2
  */
 public abstract class AbstractInvocationHandler implements InvocationHandler {

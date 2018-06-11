@@ -27,9 +27,9 @@ public class CommandMetrics {
     private final long count;
     //事件单位
     private final TimeUnit timeUnit;
-    //第一个响应
+    //第一个响应延迟统计
     private final CommandLatency firstResponse;
-    //最后一个响应
+    //全部完成延迟统计
     private final CommandLatency completion;
 
     public CommandMetrics(long count, TimeUnit timeUnit, CommandLatency firstResponse, CommandLatency completion) {
@@ -83,8 +83,11 @@ public class CommandMetrics {
     }
 
     public static class CommandLatency {
+        //最小时间
         private final long min;
+        //最大时间
         private final long max;
+        //百分位数
         private final Map<Double, Long> percentiles;
 
         public CommandLatency(long min, long max, Map<Double, Long> percentiles) {

@@ -61,13 +61,18 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
 
     private final long endpointId = ENDPOINT_COUNTER.incrementAndGet();
     private final AtomicBoolean closed = new AtomicBoolean();
+    //共享锁
     private final SharedLock sharedLock = new SharedLock();
+    //是否可以打印debug日志
     private final boolean debugEnabled = logger.isDebugEnabled();
-
+    //日志前缀
     private String logPrefix;
+    //是否自动刷新命令
     private boolean autoFlushCommands = true;
 
+    //连接看门狗
     private ConnectionWatchdog connectionWatchdog;
+    //连接门面
     private ConnectionFacade connectionFacade;
 
     private volatile Throwable connectionError;

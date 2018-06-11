@@ -37,14 +37,17 @@ import io.lettuce.core.protocol.*;
  * @since 3.0
  */
 class ClusterDistributionChannelWriter implements RedisChannelWriter {
-
+    //默认写入器
     private final RedisChannelWriter defaultWriter;
+    //集群事件监听器
     private final ClusterEventListener clusterEventListener;
     private final int executionLimit;
-
+    //集群连接提供器
     private ClusterConnectionProvider clusterConnectionProvider;
+    //异步集群连接提供器
     private AsyncClusterConnectionProvider asyncClusterConnectionProvider;
     private boolean closed = false;
+    //分区
     private volatile Partitions partitions;
 
     ClusterDistributionChannelWriter(ClientOptions clientOptions, RedisChannelWriter defaultWriter,
@@ -65,13 +68,13 @@ class ClusterDistributionChannelWriter implements RedisChannelWriter {
     public <K, V, T> RedisCommand<K, V, T> write(RedisCommand<K, V, T> command) {
 
         LettuceAssert.notNull(command, "Command must not be null");
-
+        //如果连接已经关闭则抛出异常
         if (closed) {
             throw new RedisException("Connection is closed");
         }
-
+        //如果是集群命令且命令没有处理完毕
         if (command instanceof ClusterCommand && !command.isDone()) {
-
+            //类型转换， 转换为ClusterCommand
             ClusterCommand<K, V, T> clusterCommand = (ClusterCommand<K, V, T>) command;
             if (clusterCommand.isMoved() || clusterCommand.isAsk()) {
 
@@ -101,25 +104,29 @@ class ClusterDistributionChannelWriter implements RedisChannelWriter {
                 return command;
             }
         }
-
+        //不是集群命令
+         //将当前命令包装为集群命令
         ClusterCommand<K, V, T> commandToSend = getCommandToSend(command);
+        //获取命令参数
         CommandArgs<K, V> args = command.getArgs();
 
-        // exclude CLIENT commands from cluster routing
+        //排除集群路由的cluster命令
         if (args != null && !CommandType.CLIENT.equals(commandToSend.getType())) {
-
+            //获取编码后的key
             ByteBuffer encodedKey = args.getFirstEncodedKey();
+            //如果encodedKey不为null
             if (encodedKey != null) {
-
+                //获取slot值
                 int hash = getSlot(encodedKey);
+                //根据命令类型获取命令意图 是读还是写
                 ClusterConnectionProvider.Intent intent = getIntent(command.getType());
-
+                //根据意图和slot获取连接
                 CompletableFuture<StatefulRedisConnection<K, V>> connectFuture = ((AsyncClusterConnectionProvider) clusterConnectionProvider)
                         .getConnectionAsync(intent, hash);
-
+                //如果成功获取连接
                 if (isSuccessfullyCompleted(connectFuture)) {
                     writeCommand(commandToSend, false, connectFuture.join(), null);
-                } else {
+                } else {//如果连接尚未处理完，或有异常，则添加完成处理器
                     connectFuture.whenComplete((connection, throwable) -> writeCommand(commandToSend, false, connection,
                             throwable));
                 }
@@ -137,13 +144,16 @@ class ClusterDistributionChannelWriter implements RedisChannelWriter {
         return connectFuture.isDone() && !connectFuture.isCompletedExceptionally();
     }
 
-    @SuppressWarnings("unchecked")
+    /**
+     * 将当前命令包装为集群命令
+     */
     private <K, V, T> ClusterCommand<K, V, T> getCommandToSend(RedisCommand<K, V, T> command) {
 
+        //如果是集群命令则直接返回
         if (command instanceof ClusterCommand) {
             return (ClusterCommand<K, V, T>) command;
         }
-
+        //否则对当前命令进行包装
         return new ClusterCommand<>(command, this, executionLimit);
     }
 
@@ -157,11 +167,11 @@ class ClusterDistributionChannelWriter implements RedisChannelWriter {
         }
 
         try {
-
-            if (asking) { // set asking bit
+            //如果需要asking则发送asking
+            if (asking) {
                 connection.async().asking();
             }
-
+            //发送命令
             writeCommand(command, ((RedisChannelHandler<K, V>) connection).getChannelWriter());
         } catch (Exception e) {
             command.completeExceptionally(e);
@@ -182,6 +192,7 @@ class ClusterDistributionChannelWriter implements RedisChannelWriter {
         RedisChannelWriter writerToUse = writer;
 
         if (writer instanceof ClusterDistributionChannelWriter) {
+            //获取默认写入器
             writerToUse = ((ClusterDistributionChannelWriter) writer).defaultWriter;
         }
         return writerToUse;
@@ -205,16 +216,18 @@ class ClusterDistributionChannelWriter implements RedisChannelWriter {
         // Currently: Retain order
         Intent intent = getIntent(commands);
 
+        //遍历命令
         for (RedisCommand<K, V, ?> cmd : commands) {
-
+            //如果是集群命令则添加到集群命令集合中
             if (cmd instanceof ClusterCommand) {
                 clusterCommands.add((ClusterCommand) cmd);
                 continue;
             }
-
+            //如果不是集群民营
             CommandArgs<K, V> args = cmd.getArgs();
             ByteBuffer firstEncodedKey = args != null ? args.getFirstEncodedKey() : null;
 
+            //如果第一个编码key为null则添加到默认命令集合中
             if (firstEncodedKey == null) {
                 defaultCommands.add(new ClusterCommand<>(cmd, this, executionLimit));
                 continue;
@@ -227,13 +240,15 @@ class ClusterDistributionChannelWriter implements RedisChannelWriter {
 
             commandPartition.add(new ClusterCommand<>(cmd, this, executionLimit));
         }
-
+        //遍历所有分区
         for (Map.Entry<SlotIntent, List<ClusterCommand<K, V, ?>>> entry : partitions.entrySet()) {
 
+            //获取每个分区到slotIntent
             SlotIntent slotIntent = entry.getKey();
+            //根据slotIntent获取channelHandler
             RedisChannelHandler<K, V> connection = (RedisChannelHandler<K, V>) clusterConnectionProvider.getConnection(
                     slotIntent.intent, slotIntent.slotHash);
-
+            //获取writer
             RedisChannelWriter channelWriter = connection.getChannelWriter();
             if (channelWriter instanceof ClusterDistributionChannelWriter) {
                 ClusterDistributionChannelWriter writer = (ClusterDistributionChannelWriter) channelWriter;
@@ -244,8 +259,9 @@ class ClusterDistributionChannelWriter implements RedisChannelWriter {
                 channelWriter.write(entry.getValue());
             }
         }
-
+        //集合命令逐个发送
         clusterCommands.forEach(this::write);
+        //使用defaultWriter批量发送
         defaultCommands.forEach(defaultWriter::write);
 
         return (Collection) commands;

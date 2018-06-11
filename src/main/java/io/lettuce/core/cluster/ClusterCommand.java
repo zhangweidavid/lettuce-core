@@ -24,11 +24,13 @@ import io.netty.buffer.ByteBuf;
  * @since 3.0
  */
 class ClusterCommand<K, V, T> extends CommandWrapper<K, V, T> implements RedisCommand<K, V, T> {
-
+    //重定向次数
     private int redirections;
+    //最大重定向次数
     private final int maxRedirections;
-
+    //重试写入器
     private final RedisChannelWriter retry;
+    //是否处理结束
     private boolean completed;
 
     /**
@@ -45,14 +47,16 @@ class ClusterCommand<K, V, T> extends CommandWrapper<K, V, T> implements RedisCo
 
     @Override
     public void complete() {
-
+        //如果响应是MOVED或ASK
         if (isMoved() || isAsk()) {
-
+            //如果最大重定向次数大于当前重定向次数则可以进行重定向
             boolean retryCommand = maxRedirections > redirections;
+            //重定向次数自增
             redirections++;
 
             if (retryCommand) {
                 try {
+                    //重定向
                     retry.write(this);
                 } catch (Exception e) {
                     completeExceptionally(e);
@@ -65,7 +69,7 @@ class ClusterCommand<K, V, T> extends CommandWrapper<K, V, T> implements RedisCo
     }
 
     public boolean isMoved() {
-
+        //如果错误消息不为null且错误消息是以 MOVED开头
         if (getError() != null && getError().startsWith(CommandKeyword.MOVED.name())) {
             return true;
         }
@@ -74,7 +78,7 @@ class ClusterCommand<K, V, T> extends CommandWrapper<K, V, T> implements RedisCo
     }
 
     public boolean isAsk() {
-
+        //如果错误消息不为null且错误消息是以ASK开头
         if (getError() != null && getError().startsWith(CommandKeyword.ASK.name())) {
             return true;
         }
@@ -113,6 +117,7 @@ class ClusterCommand<K, V, T> extends CommandWrapper<K, V, T> implements RedisCo
         return isCompleted();
     }
 
+    //获取错误消息
     public String getError() {
         if (command.getOutput() != null) {
             return command.getOutput().getError();

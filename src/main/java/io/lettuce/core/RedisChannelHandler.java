@@ -41,26 +41,30 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
 public abstract class RedisChannelHandler<K, V> implements Closeable, ConnectionFacade {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(RedisChannelHandler.class);
-
+    //超时时间
     private Duration timeout;
+    //关闭事件
     private CloseEvents closeEvents = new CloseEvents();
-
+    //通道写入器
     private final RedisChannelWriter channelWriter;
-    private final boolean debugEnabled = logger.isDebugEnabled();
 
+    private final boolean debugEnabled = logger.isDebugEnabled();
+    //是否关闭
     private volatile boolean closed;
+    //是否有效，默认值为true
     private volatile boolean active = true;
+    //客户端选项
     private volatile ClientOptions clientOptions;
 
     /**
-     * @param writer the channel writer
-     * @param timeout timeout value
+     * 根据redis通道写入器和超时时间创建RedisChannelHandler
      */
     public RedisChannelHandler(RedisChannelWriter writer, Duration timeout) {
 
         this.channelWriter = writer;
-
+        //设置写入器的门面为当前对象
         writer.setConnectionFacade(this);
+        //设置超时事件
         setTimeout(timeout);
     }
 
@@ -91,7 +95,7 @@ public abstract class RedisChannelHandler<K, V> implements Closeable, Connection
     }
 
     /**
-     * Close the connection.
+     * 关闭连接
      */
     @Override
     public synchronized void close() {
@@ -114,6 +118,9 @@ public abstract class RedisChannelHandler<K, V> implements Closeable, Connection
         }
     }
 
+    /**
+     * 派发命令
+     */
     protected <T> RedisCommand<K, V, T> dispatch(RedisCommand<K, V, T> cmd) {
 
         if (debugEnabled) {
@@ -142,11 +149,13 @@ public abstract class RedisChannelHandler<K, V> implements Closeable, Connection
         registry.addAll(Arrays.asList(closeables));
         //注册关闭监听器
         addListener(resource -> {
+            //遍历所有可关闭资源
             for (Closeable closeable : closeables) {
+                //如果可关闭资源是当前对象则继续查找
                 if (closeable == RedisChannelHandler.this) {
                     continue;
                 }
-
+                //关闭可关闭资源
                 try {
                     closeable.close();
                 } catch (IOException e) {
@@ -155,7 +164,7 @@ public abstract class RedisChannelHandler<K, V> implements Closeable, Connection
                     }
                 }
             }
-
+            //从注册器中删除所有可关闭资源
             registry.removeAll(Arrays.asList(closeables));
         });
     }
@@ -222,6 +231,7 @@ public abstract class RedisChannelHandler<K, V> implements Closeable, Connection
 
     @SuppressWarnings("unchecked")
     protected <T> T syncHandler(Object asyncApi, Class<?>... interfaces) {
+        //对异步API创建调用处理器
         FutureSyncInvocationHandler h = new FutureSyncInvocationHandler((StatefulConnection<?, ?>) this, asyncApi, interfaces);
         //创建动态代理
         return (T) Proxy.newProxyInstance(AbstractRedisClient.class.getClassLoader(), interfaces, h);

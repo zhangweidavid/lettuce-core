@@ -31,8 +31,7 @@ import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 
 /**
- * State machine that decodes redis server responses encoded according to the <a href="http://redis.io/topics/protocol">Unified
- * Request Protocol (RESP)</a>.
+ * 解码Redis服务器响应对状态机
  *
  * @author Will Glozer
  * @author Mark Paluch
@@ -43,6 +42,9 @@ public class RedisStateMachine {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(RedisStateMachine.class);
     private static final ByteBuffer QUEUED = buffer("QUEUED");
 
+    /**
+     * 定义了单个命令，错误，数字，批量，数组，字节等类型
+     */
     static class State {
         enum Type {
             SINGLE, ERROR, INTEGER, BULK, MULTI, BYTES
@@ -80,9 +82,9 @@ public class RedisStateMachine {
     /**
      * Attempt to decode a redis response and return a flag indicating whether a complete response was read.
      *
-     * @param buffer Buffer containing data from the server.
+     * @param buffer  Buffer containing data from the server.
      * @param command the command itself
-     * @param output Current command output.
+     * @param output  Current command output.
      * @return true if a complete response was read.
      */
     public boolean decode(ByteBuf buffer, RedisCommand<?, ?, ?> command, CommandOutput<?, ?, ?> output) {
@@ -92,7 +94,7 @@ public class RedisStateMachine {
         if (debugEnabled) {
             logger.debug("Decode {}", command);
         }
-
+        //如果stack为空
         if (isEmpty(stack)) {
             add(stack, new State());
         }
@@ -104,13 +106,17 @@ public class RedisStateMachine {
         loop:
 
         while (!isEmpty(stack)) {
+            //获取状态
             State state = peek(stack);
-
+            //如果类型为null
             if (state.type == null) {
+                //如果buffer不可读，则中断
                 if (!buffer.isReadable()) {
                     break;
                 }
+                //buffer可读，根据buffer的第一个字符设置state类型
                 state.type = readReplyType(buffer);
+                //标记读取索引
                 buffer.markReaderIndex();
             }
 
@@ -216,19 +222,29 @@ public class RedisStateMachine {
         return (index > 0 && buffer.getByte(index - 1) == '\r') ? index : -1;
     }
 
+    /**
+     * 获取响应类型
+     */
     private State.Type readReplyType(ByteBuf buffer) {
+        //获取第一个字节
         byte b = buffer.readByte();
         switch (b) {
+            //如果第一个字节是+就表示响应是简单字符串，就是单行响应
             case '+':
                 return SINGLE;
+            //如果第一个字节是-就表示是异常
             case '-':
                 return ERROR;
+            //如果第一个字节是：就表示是数字
             case ':':
                 return INTEGER;
+            //如果是$就表示是批量
             case '$':
                 return BULK;
+            //如果是*就表示是数组
             case '*':
                 return MULTI;
+            //其它的都是非法的响应
             default:
                 throw new RedisException("Invalid first byte: " + Byte.toString(b));
         }

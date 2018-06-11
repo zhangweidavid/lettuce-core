@@ -179,30 +179,30 @@ public class DefaultClientResources implements ClientResources {
         if (builder.commandLatencyCollector == null) {
             //如果默认命令延迟收集器可用
             if (DefaultCommandLatencyCollector.isAvailable()) {
-                //如果命令延迟收集器选项不为null
+                //如果命令延迟收集器选项不为null,则使用用户自定义都命令延迟收集器选项设置
                 if (builder.commandLatencyCollectorOptions != null) {
                     commandLatencyCollector = new DefaultCommandLatencyCollector(builder.commandLatencyCollectorOptions);
-                } else {
+                } else {//如果没有设置则使用默认数据
                     commandLatencyCollector = new DefaultCommandLatencyCollector(DefaultCommandLatencyCollectorOptions.create());
                 }
-            } else {
+            } else {//如果默认命令延迟收集器不可用则将命令延迟收集器选项设置为不可用，并将收集器设置为不可用收集器
                 logger.debug("LatencyUtils/HdrUtils are not available, metrics are disabled");
                 builder.commandLatencyCollectorOptions = DefaultCommandLatencyCollectorOptions.disabled();
                 commandLatencyCollector = DefaultCommandLatencyCollector.disabled();
             }
-
+           //将共享收集器设置为false
             sharedCommandLatencyCollector = false;
-        } else {
+        } else {//命令延迟收集器不为null则使用用户指定的命令延迟收集器，并将共享收集器设置为true
             sharedCommandLatencyCollector = true;
             commandLatencyCollector = builder.commandLatencyCollector;
         }
-
+        //命令延迟发射器选项
         commandLatencyPublisherOptions = builder.commandLatencyPublisherOptions;
-
+        //如果命令延迟收集器可用同时命令延迟发射器选项不为null
         if (commandLatencyCollector.isEnabled() && commandLatencyPublisherOptions != null) {
             metricEventPublisher = new DefaultCommandLatencyEventPublisher(eventExecutorGroup, commandLatencyPublisherOptions,
                     eventBus, commandLatencyCollector);
-        } else {
+        } else {//如果命令延迟收集器不可用或命令发射选项为null都将测量事件发射器设置为null
             metricEventPublisher = null;
         }
 

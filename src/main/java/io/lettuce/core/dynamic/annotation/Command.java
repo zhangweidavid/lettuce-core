@@ -20,6 +20,7 @@ import java.lang.annotation.*;
 import io.lettuce.core.dynamic.domain.Timeout;
 
 /**
+ * Redis命令方法注解，定义命令字符串。一个命令字符串可以包含命名名称，一组命令命令字符串和参数引用
  * Redis command method annotation specifying a command string. A command string can contain the command name, a sequence of
  * command string bytes and parameter references.
  * <p>
@@ -55,7 +56,7 @@ import io.lettuce.core.dynamic.domain.Timeout;
 public @interface Command {
 
     /**
-     * Command string.
+     * 命令字符串
      */
     String value();
 }

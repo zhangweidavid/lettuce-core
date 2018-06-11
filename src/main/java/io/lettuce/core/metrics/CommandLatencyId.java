@@ -29,9 +29,11 @@ import io.lettuce.core.protocol.ProtocolKeyword;
  */
 @SuppressWarnings("serial")
 public class CommandLatencyId implements Serializable, Comparable<CommandLatencyId> {
-
+    //本地地址
     private final SocketAddress localAddress;
+    //远程地址
     private final SocketAddress remoteAddress;
+    //命令类型
     private final ProtocolKeyword commandType;
 
     protected CommandLatencyId(SocketAddress localAddress, SocketAddress remoteAddress, ProtocolKeyword commandType) {

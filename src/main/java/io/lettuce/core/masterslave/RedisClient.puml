@@ -1,0 +1,7 @@
+@startuml
+Application -> MasterSlave: connection
+MasterSlave --> MasterSlave: connectSentinel
+
+Alice -> Bob: Another authentication Request
+Alice <-- Bob: another authentication Response
+@enduml

@@ -27,6 +27,7 @@ import io.lettuce.core.metrics.CommandMetrics;
  */
 public class CommandLatencyEvent implements Event {
 
+    //延迟测量指标事件映射表
     private Map<CommandLatencyId, CommandMetrics> latencies;
 
     public CommandLatencyEvent(Map<CommandLatencyId, CommandMetrics> latencies) {

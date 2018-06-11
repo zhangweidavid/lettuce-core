@@ -52,6 +52,7 @@ public class ClusterTopologyRefresh {
     }
 
     /**
+     * 从RedisURI集合中加载分区视图
      * Load partition views from a collection of {@link RedisURI}s and return the view per {@link RedisURI}. Partitions contain
      * an ordered list of {@link RedisClusterNode}s. The sort key is latency. Nodes with lower latency come first.
      *

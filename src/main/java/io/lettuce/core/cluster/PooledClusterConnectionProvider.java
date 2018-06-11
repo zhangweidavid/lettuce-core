@@ -61,9 +61,11 @@ class PooledClusterConnectionProvider<K, V> implements ClusterConnectionProvider
     private final RedisChannelWriter clusterWriter;
     private final RedisCodec<K, V> redisCodec;
     private final SynchronizingClusterConnectionProvider<K, V> connectionProvider;
-
+    //分区信息
     private Partitions partitions;
+    //是否自动刷新
     private boolean autoFlushCommands = true;
+
     private ReadFrom readFrom;
 
     public PooledClusterConnectionProvider(RedisClusterClient redisClusterClient, RedisChannelWriter clusterWriter,
@@ -99,8 +101,9 @@ class PooledClusterConnectionProvider<K, V> implements ClusterConnectionProvider
         if (debugEnabled) {
             logger.debug("getConnection(" + intent + ", " + slot + ")");
         }
-
+        //如果是读操作且readFrom 不为null
         if (intent == Intent.READ && readFrom != null) {
+            //获取只读连接
             return getReadConnection(slot);
         }
         return getWriteConnection(slot).toCompletableFuture();
@@ -140,26 +143,28 @@ class PooledClusterConnectionProvider<K, V> implements ClusterConnectionProvider
 
         return writer;
     }
-
+    //获取只读连接
     protected CompletableFuture<StatefulRedisConnection<K, V>> getReadConnection(int slot) {
 
         CompletableFuture<StatefulRedisConnection<K, V>> readerCandidates[];// avoid races when reconfiguring partitions.
 
         boolean cached = true;
-
+        //获取只读连接候选人
         synchronized (stateLock) {
             readerCandidates = readers[slot];
         }
-
+        //如果不存在候选人
         if (readerCandidates == null) {
-
+            //根据slot获取分区节点
             RedisClusterNode master = partitions.getPartitionBySlot(slot);
+            //如果无法根据slot获取分区节点则抛出异常
             if (master == null) {
                 throw new RedisException("Cannot determine a partition to read for slot " + slot + " (Partitions: "
                         + partitions + ")");
             }
-
+            //获取这个分区节点所有节点（主节点+备节点）
             List<RedisNodeDescription> candidates = getReadCandidates(master);
+            //根据readFrom删选出可选节点
             List<RedisNodeDescription> selection = readFrom.select(new ReadFrom.Nodes() {
                 @Override
                 public List<RedisNodeDescription> getNodes() {
@@ -171,20 +176,20 @@ class PooledClusterConnectionProvider<K, V> implements ClusterConnectionProvider
                     return candidates.iterator();
                 }
             });
-
+            //如果可选节点为空则抛出异常
             if (selection.isEmpty()) {
                 throw new RedisException("Cannot determine a partition to read for slot " + slot + " (Partitions: "
                         + partitions + ") with setting " + readFrom);
             }
-
+            //从可选节点中选择候选人
             readerCandidates = getReadFromConnections(selection);
             cached = false;
         }
-
+        //已经选中的候选人集合
         CompletableFuture<StatefulRedisConnection<K, V>> selectedReaderCandidates[] = readerCandidates;
 
-        if (cached) {
-
+        if (cached) {//如果是缓存中的候选人
+            //遍历所有候选人找到一个可用连接返回
             return CompletableFuture.allOf(readerCandidates).thenCompose(v -> {
 
                 for (CompletableFuture<StatefulRedisConnection<K, V>> candidate : selectedReaderCandidates) {
@@ -197,27 +202,28 @@ class PooledClusterConnectionProvider<K, V> implements ClusterConnectionProvider
                 return selectedReaderCandidates[0];
             });
         }
-
+        //不是缓存的候选人
         CompletableFuture<StatefulRedisConnection<K, V>[]> filteredReaderCandidates = new CompletableFuture<>();
-
+        //过滤建立连接的的后续人
         CompletableFuture.allOf(readerCandidates).thenApply(v -> selectedReaderCandidates)
                 .whenComplete((candidates, throwable) -> {
-
+                    //如果正常结束
                     if (throwable == null) {
+                        //设置连接
                         filteredReaderCandidates.complete(getConnections(candidates));
                         return;
                     }
-
+                    //如果存在异常
                     StatefulRedisConnection<K, V>[] connections = getConnections(selectedReaderCandidates);
-
+                    //如果没有连接则异常结束
                     if (connections.length == 0) {
                         filteredReaderCandidates.completeExceptionally(throwable);
                         return;
                     }
-
+                    //complete
                     filteredReaderCandidates.complete(connections);
                 });
-
+        //将所有候选人存入缓存，并返回一个有效连接
         return filteredReaderCandidates
                 .thenApply(statefulRedisConnections -> {
 
@@ -244,11 +250,12 @@ class PooledClusterConnectionProvider<K, V> implements ClusterConnectionProvider
             CompletableFuture<StatefulRedisConnection<K, V>>[] selectedReaderCandidates) {
 
         List<StatefulRedisConnection<K, V>> connections = new ArrayList<>(selectedReaderCandidates.length);
-
+        //遍历所有选中的候选人
         for (CompletableFuture<StatefulRedisConnection<K, V>> candidate : selectedReaderCandidates) {
 
             try {
-                connections.add(candidate.join());
+                //获取候选人的连接，添加到连接集合中
+                connections.add(candidate.join());//join操作返回值，如果有异常则抛出异常
             } catch (Exception o_O) {
             }
         }
@@ -264,15 +271,16 @@ class PooledClusterConnectionProvider<K, V> implements ClusterConnectionProvider
         // host because the nodeId can be handled by a different host.
 
         CompletableFuture<StatefulRedisConnection<K, V>>[] readerCandidates = new CompletableFuture[selection.size()];
-
+        //遍历所有可选节点
         for (int i = 0; i < selection.size(); i++) {
-
+            //获取节点描述
             RedisNodeDescription redisClusterNode = selection.get(i);
-
+            //获取节点URI
             RedisURI uri = redisClusterNode.getUri();
+            //创建连接关键字
             ConnectionKey key = new ConnectionKey(redisClusterNode.getRole() == RedisInstance.Role.MASTER ? Intent.WRITE
                     : Intent.READ, uri.getHost(), uri.getPort());
-
+            //设置可读候选人
             readerCandidates[i] = getConnectionAsync(key).toCompletableFuture();
         }
 
