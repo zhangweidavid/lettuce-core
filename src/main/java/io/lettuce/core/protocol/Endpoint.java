@@ -18,30 +18,27 @@ package io.lettuce.core.protocol;
 import io.netty.channel.Channel;
 
 /**
- * Wraps a stateful {@link Endpoint} that abstracts the underlying channel. Endpoints may be connected, disconnected and in
- * closed states. Endpoints may feature reconnection capabilities with replaying queued commands.
- *
+ *  包装一个抽象基础频道都有状态断点；断点可能是连接，断开连接，关闭等状态；断点可能具有重发排队命令的重连接功能
  * @author Mark Paluch
  */
 public interface Endpoint {
 
     /**
-     * Notify about channel activation.
+     * 通知当前频道已经激活
      *
      * @param channel the channel
      */
     void notifyChannelActive(Channel channel);
 
     /**
-     * Notify about channel deactivation.
+     * 通知单前频道失效
      *
      * @param channel the channel
      */
     void notifyChannelInactive(Channel channel);
 
     /**
-     * Notify about an exception occured in channel/command processing
-     *
+     * 通知在频道或命令处理过程中发生异常
      * @param t the Exception
      */
     void notifyException(Throwable t);
