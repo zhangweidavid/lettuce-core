@@ -40,6 +40,7 @@ import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 
 /**
+ * 重连处理器
  * @author Mark Paluch
  */
 class ReconnectionHandler {

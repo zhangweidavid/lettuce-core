@@ -45,6 +45,7 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
 @ChannelHandler.Sharable
 public class ConnectionWatchdog extends ChannelInboundHandlerAdapter {
 
+    //日志不起作用时间间隔
     private static final long LOGGING_QUIET_TIME_MS = TimeUnit.MILLISECONDS.convert(5, TimeUnit.SECONDS);
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(ConnectionWatchdog.class);
 
@@ -56,14 +57,18 @@ public class ConnectionWatchdog extends ChannelInboundHandlerAdapter {
     private final Timer timer;
 
     private Channel channel;
+    //远程地址
     private SocketAddress remoteAddress;
+    //最后一次重连时间
     private long lastReconnectionLogging = -1;
+    //日志前缀
     private String logPrefix;
-
+    //是否同步重连
     private final AtomicBoolean reconnectSchedulerSync;
     private volatile int attempts;
     private volatile boolean armed;
     private volatile boolean listenOnChannelInactive;
+    //重连超时时间
     private volatile Timeout reconnectScheduleTimeout;
 
     /**
@@ -134,12 +139,17 @@ public class ConnectionWatchdog extends ChannelInboundHandlerAdapter {
         super.userEventTriggered(ctx, evt);
     }
 
+    /**
+     * 主备关闭
+     */
     void prepareClose() {
-
+        //设置不监听断开连接
         setListenOnChannelInactive(false);
+        //暂停重新连接
         setReconnectSuspended(true);
-
+        //获取重连的超时时间
         Timeout reconnectScheduleTimeout = this.reconnectScheduleTimeout;
+        //如果超时时间不为null且没有被取消则执行取消
         if (reconnectScheduleTimeout != null && !reconnectScheduleTimeout.isCancelled()) {
             reconnectScheduleTimeout.cancel();
         }
@@ -150,14 +160,17 @@ public class ConnectionWatchdog extends ChannelInboundHandlerAdapter {
     //通道激活
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
-
+        //同步重连设置为false
         reconnectSchedulerSync.set(false);
         //设置通道
         channel = ctx.channel();
+        //重连超时时间设置为null
         reconnectScheduleTimeout = null;
+        //日志前缀设置为null
         logPrefix = null;
         //获取远程地址
         remoteAddress = channel.remoteAddress();
+        //重复
         logPrefix = null;
         logger.debug("{} channelActive()", logPrefix());
 
@@ -194,7 +207,7 @@ public class ConnectionWatchdog extends ChannelInboundHandlerAdapter {
     }
 
     /**
-     * Schedule reconnect if channel is not available/not active.
+     * 如果通道不可用则延后重连
      */
     public void scheduleReconnect() {
 
@@ -214,9 +227,11 @@ public class ConnectionWatchdog extends ChannelInboundHandlerAdapter {
             //尝试次数
             attempts++;
             final int attempt = attempts;
+            //获取延迟时间
             int timeout = (int) reconnectDelay.createDelay(attempt).toMillis();
             logger.debug("{} Reconnect attempt {}, delay {}ms", logPrefix(), attempt, timeout);
 
+            //timer执行重连，并将任务关联具柄赋值给reconnectScheduleTimeout
             this.reconnectScheduleTimeout = timer.newTimeout(it -> {
 
                 reconnectScheduleTimeout = null;
@@ -232,7 +247,7 @@ public class ConnectionWatchdog extends ChannelInboundHandlerAdapter {
                 });
             }, timeout, TimeUnit.MILLISECONDS);
 
-            // Set back to null when ConnectionWatchdog#run runs earlier than reconnectScheduleTimeout's assignment.
+            //获取同步定时重连标志为false，则将具柄设置为null
             if (!reconnectSchedulerSync.get()) {
                 reconnectScheduleTimeout = null;
             }
@@ -274,9 +289,9 @@ public class ConnectionWatchdog extends ChannelInboundHandlerAdapter {
         InternalLogLevel infoLevel = InternalLogLevel.INFO;
         InternalLogLevel warnLevel = InternalLogLevel.WARN;
 
-        if (shouldLog) {
+        if (shouldLog) {//需要记录，则将当前时间赋值个lastReconnectionLogging
             lastReconnectionLogging = System.currentTimeMillis();
-        } else {
+        } else {//否则设置日志级别为DEBUG
             warnLevel = InternalLogLevel.DEBUG;
             infoLevel = InternalLogLevel.DEBUG;
         }
@@ -284,25 +299,28 @@ public class ConnectionWatchdog extends ChannelInboundHandlerAdapter {
         InternalLogLevel warnLevelToUse = warnLevel;
 
         try {
+            //通知重连监听器重新连接
             reconnectionListener.onReconnect(new ConnectionEvents.Reconnect(attempt));
+            //日志输出
             logger.log(infoLevel, "Reconnecting, last destination was {}", remoteAddress);
 
+            //重连处理器执行重连
             ChannelFuture future = reconnectionHandler.reconnect();
-
+            //向重连channelFuture注册监听器
             future.addListener(it -> {
-
+                //成功或无异常则返回
                 if (it.isSuccess() || it.cause() == null) {
                     return;
                 }
-
+                //异常
                 Throwable throwable = it.cause();
-
+                //如果是执行异常则打印日志
                 if (ReconnectionHandler.isExecutionException(throwable)) {
                     logger.log(warnLevelToUse, "Cannot reconnect: {}", throwable.toString());
-                } else {
+                } else {//非执行异常，打印日志输出异常栈
                     logger.log(warnLevelToUse, "Cannot reconnect: {}", throwable.toString(), throwable);
                 }
-
+                //没有暂停重连，则延后重连
                 if (!isReconnectSuspended()) {
                     scheduleReconnect();
                 }
@@ -326,8 +344,9 @@ public class ConnectionWatchdog extends ChannelInboundHandlerAdapter {
     }
 
     private boolean shouldLog() {
-
+        //下一个记录时间
         long quietUntil = lastReconnectionLogging + LOGGING_QUIET_TIME_MS;
+        //如果当前时间大于或等于下一次记录时间点则表示需要记录
         return quietUntil <= System.currentTimeMillis();
     }
 

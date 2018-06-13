@@ -33,9 +33,7 @@ public interface ReconnectionListener {
     };
 
     /**
-     * Listener method notified on a reconnection attempt.
-     *
-     * @param reconnect the event payload.
+     * 在尝试重连时通知该监听方法
      */
     void onReconnect(ConnectionEvents.Reconnect reconnect);
 
