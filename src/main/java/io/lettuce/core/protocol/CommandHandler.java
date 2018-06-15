@@ -370,8 +370,9 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
     }
 
     private void writeSingleCommand(ChannelHandlerContext ctx, RedisCommand<?, ?, ?> command, ChannelPromise promise) {
-
+           //如果命令不可以写
         if (!isWriteable(command)) {
+            //尝试执行成功
             promise.trySuccess();
             return;
         }
@@ -381,13 +382,15 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
     }
 
     private void writeBatch(ChannelHandlerContext ctx, Collection<RedisCommand<?, ?, ?>> batch, ChannelPromise promise) {
-
+        //不重复命令集合
         Collection<RedisCommand<?, ?, ?>> deduplicated = new LinkedHashSet<>(batch.size(), 1);
-
+          //遍历所有命令
         for (RedisCommand<?, ?, ?> command : batch) {
-
+            //如果命令可以写同时命令重复
             if (isWriteable(command) && !deduplicated.add(command)) {
+                //删除重复命令
                 deduplicated.remove(command);
+                //该命令异常结束
                 command.completeExceptionally(new RedisException(
                         "Attempting to write duplicate command that is already enqueued: " + command));
             }
@@ -396,7 +399,7 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
         try {
             validateWrite(deduplicated.size());
         } catch (Exception e) {
-
+            //异常处理
             for (RedisCommand<?, ?, ?> redisCommand : deduplicated) {
                 redisCommand.completeExceptionally(e);
             }
@@ -425,12 +428,12 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
                 // fire&forget commands are excluded from metrics
                 complete(command);
             }
-
+            //可能包装为延迟测量
             RedisCommand<?, ?, ?> redisCommand = potentiallyWrapLatencyCommand(command);
-
+            //如果是空的future则将redisCommand直接添加到stack中； 因为promise.isVoid()=true，是不允许调用addListener
             if (promise.isVoid()) {
                 stack.add(redisCommand);
-            } else {
+            } else {//如果不是则添加监听器
                 promise.addListener(AddToStack.newInstance(stack, redisCommand));
             }
         } catch (Exception e) {
@@ -849,10 +852,11 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
     }
 
     /**
-     * Add to stack listener. This listener is pooled and must be {@link #recycle() recycled after usage}.
+     * Add to stack listener. This listener is pooled and must be {@link #recycle() recycled after usage}
+     * 添加到队列的监听器，这个监听器是缓存起来的，使用过后通过recycle()方法重复使用.
      */
     static class AddToStack implements GenericFutureListener<Future<Void>> {
-
+        //创建复用器，如果没有则创建一个新的对象
         private static final Recycler<AddToStack> RECYCLER = new Recycler<AddToStack>() {
             @Override
             protected AddToStack newObject(Handle<AddToStack> handle) {
@@ -876,12 +880,13 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
          * @return
          */
         static AddToStack newInstance(ArrayDeque stack, RedisCommand<?, ?, ?> command) {
-
+            //从复用器中获取对象
             AddToStack entry = RECYCLER.get();
-
+            //设置监听器操作队列
             entry.stack = stack;
+            //设置监听命令
             entry.command = command;
-
+            //返回监听器
             return entry;
         }
 
@@ -890,10 +895,12 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
         public void operationComplete(Future<Void> future) {
 
             try {
+                //如果命令成功结束则将命令添加到队列中
                 if (future.isSuccess()) {
                     stack.add(command);
                 }
             } finally {
+                //重置监听器
                 recycle();
             }
         }
