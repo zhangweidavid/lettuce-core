@@ -346,18 +346,21 @@ public class CommandArgs<K, V> {
     }
 
     /**
-     * Single argument wrapper that can be encoded.
+     * 可以被编码的单个参数包装类
      */
     static abstract class SingularArgument {
 
         /**
-         * Encode the argument and write it to the {@code buffer}.
+         * 对参数进行编码并写入到buffer
          *
          * @param buffer
          */
         abstract void encode(ByteBuf buffer);
     }
 
+    /**
+     * 字节数据对单个参数对象
+     */
     static class BytesArgument extends SingularArgument {
 
         final byte[] val;
@@ -394,18 +397,25 @@ public class CommandArgs<K, V> {
         }
     }
 
+    /**
+     * 协议关键字参数
+     */
     static class ProtocolKeywordArgument extends BytesArgument {
 
+        //协议关键字
         private final ProtocolKeyword protocolKeyword;
 
         private ProtocolKeywordArgument(ProtocolKeyword protocolKeyword) {
+            //获取协议的字节码
             super(protocolKeyword.getBytes());
             this.protocolKeyword = protocolKeyword;
         }
 
         static BytesArgument of(ProtocolKeyword protocolKeyword) {
 
+            //如果是CommandType实例
             if (protocolKeyword instanceof CommandType) {
+                //从缓存中获取协议关键字对应的字节码参数
                 return CommandTypeCache.cache[((Enum) protocolKeyword).ordinal()];
             }
 
@@ -422,10 +432,13 @@ public class CommandArgs<K, V> {
         }
     }
 
+    /**
+     * 命令类型缓存
+     */
     static class CommandTypeCache {
 
         static final ProtocolKeywordArgument cache[];
-
+       //初始化缓存
         static {
 
             CommandType[] values = CommandType.values();

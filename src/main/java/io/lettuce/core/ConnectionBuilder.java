@@ -110,7 +110,7 @@ public class ConnectionBuilder {
         LettuceAssert.assertState(bootstrap != null, "Bootstrap must be set for autoReconnect=true");
         LettuceAssert.assertState(timer != null, "Timer must be set for autoReconnect=true");
         LettuceAssert.assertState(socketAddressSupplier != null, "SocketAddressSupplier must be set for autoReconnect=true");
-        //创建连接看门狗
+        //创建连接看门狗,ConnectionWatchdog 执行重连任务的线程池数量收到ClientResources.computationThreadPoolSize参数影响
         ConnectionWatchdog watchdog = new ConnectionWatchdog(clientResources.reconnectDelay(), clientOptions, bootstrap, timer,
                 clientResources.eventExecutorGroup(), socketAddressSupplier, reconnectionListener, connection);
         //向endpoint注册看门狗

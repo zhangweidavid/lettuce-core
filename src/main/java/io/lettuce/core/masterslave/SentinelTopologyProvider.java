@@ -48,6 +48,7 @@ public class SentinelTopologyProvider implements TopologyProvider {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(SentinelTopologyProvider.class);
     //主节点ID
     private final String masterId;
+    //redis客户端
     private final RedisClient redisClient;
     //哨兵
     private final RedisURI sentinelUri;
@@ -66,9 +67,10 @@ public class SentinelTopologyProvider implements TopologyProvider {
         LettuceAssert.notEmpty(masterId, "MasterId must not be empty");
         LettuceAssert.notNull(redisClient, "RedisClient must not be null");
         LettuceAssert.notNull(sentinelUri, "Sentinel URI must not be null");
-
+        //主节点
         this.masterId = masterId;
         this.redisClient = redisClient;
+        //sentinel URI
         this.sentinelUri = sentinelUri;
         //从uri中获取超时时间
         this.timeout = sentinelUri.getTimeout();
@@ -78,15 +80,18 @@ public class SentinelTopologyProvider implements TopologyProvider {
     public List<RedisNodeDescription> getNodes() {
 
         logger.debug("lookup topology for masterId {}", masterId);
-
+        //自动关闭方式连接sentinel
         try (StatefulRedisSentinelConnection<String, String> connection = redisClient.connectSentinel(CODEC, sentinelUri)) {
-
+            //异步获取主节点
             RedisFuture<Map<String, String>> masterFuture = connection.async().master(masterId);
+            //异步获取slave节点
             RedisFuture<List<Map<String, String>>> slavesFuture = connection.async().slaves(masterId);
 
             List<RedisNodeDescription> result = new ArrayList<>();
             try {
+                //获取主节点
                 Map<String, String> master = masterFuture.get(timeout.toNanos(), TimeUnit.NANOSECONDS);
+                //获取slave节点
                 List<Map<String, String>> slaves = slavesFuture.get(timeout.toNanos(), TimeUnit.NANOSECONDS);
                 //添加master节点
                 result.add(toNode(master, RedisInstance.Role.MASTER));
@@ -103,9 +108,11 @@ public class SentinelTopologyProvider implements TopologyProvider {
     }
 
     private static boolean isAvailable(Map<String, String> map) {
-
+        //获取flags
         String flags = map.get("flags");
+        //如果flags不为null
         if (flags != null) {
+            //flags中存在s_down 或 o_down 或disconnected 则表示该节点不可用
             if (flags.contains("s_down") || flags.contains("o_down") || flags.contains("disconnected")) {
                 return false;
             }

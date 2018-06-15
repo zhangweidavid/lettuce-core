@@ -28,7 +28,9 @@ import io.lettuce.core.internal.LettuceAssert;
  */
 @SuppressWarnings("serial")
 public class RoleParser {
+    //角色映射表
     protected static final Map<String, RedisInstance.Role> ROLE_MAPPING;
+    //备节点状态映射表
     protected static final Map<String, RedisSlaveInstance.State> SLAVE_STATE_MAPPING;
 
     static {
@@ -66,10 +68,11 @@ public class RoleParser {
         LettuceAssert.isTrue(roleOutput != null && !roleOutput.isEmpty(), "Empty role output");
         LettuceAssert.isTrue(roleOutput.get(0) instanceof String && ROLE_MAPPING.containsKey(roleOutput.get(0)),
                 "First role element must be a string (any of " + ROLE_MAPPING.keySet() + ")");
-
+        //获取Redis角色
         RedisInstance.Role role = ROLE_MAPPING.get(roleOutput.get(0));
 
         switch (role) {
+            //如果第一个是master
             case MASTER:
                 return parseMaster(roleOutput);
 
@@ -197,6 +200,11 @@ public class RoleParser {
         return defaultValue;
     }
 
+    /**
+     * 获取master响应的偏移量
+     * @param roleOutput
+     * @return
+     */
     private static long getMasterReplicationOffset(List<?> roleOutput) {
         long replicationOffset = 0;
 

@@ -16,15 +16,13 @@
 package io.lettuce.core.protocol;
 
 /**
- * Interface for protocol keywords providing an encoded representation.
- *
+ *  提供编码表示协议关键字的接口
  * @author Mark Paluch
  */
 public interface ProtocolKeyword {
 
     /**
-     *
-     * @return byte[] encoded representation.
+     * 返回编码后的协议关键字
      *
      */
     byte[] getBytes();

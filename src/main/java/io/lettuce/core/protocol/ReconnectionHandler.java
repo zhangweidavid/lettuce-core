@@ -47,12 +47,15 @@ class ReconnectionHandler {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(ReconnectionHandler.class);
 
+    //执行异常类型
     private static final Set<Class<?>> EXECUTION_EXCEPTION_TYPES = LettuceSets.unmodifiableSet(TimeoutException.class,
             CancellationException.class, RedisCommandTimeoutException.class, ConnectException.class);
-
+    //客户端选项
     private final ClientOptions clientOptions;
     private final Bootstrap bootstrap;
+    //socketAddress提供器
     private final Supplier<SocketAddress> socketAddressSupplier;
+    //定时器
     private final Timer timer;
     private final ExecutorService reconnectWorkers;
     private final ConnectionFacade connectionFacade;
@@ -161,6 +164,7 @@ class ReconnectionHandler {
                     });
         });
 
+        //超时处理，标记initFuture失败
         Runnable timeoutAction = () -> {
             initFuture.tryFailure(new TimeoutException(String.format("Reconnection attempt exceeded timeout of %d %s ",
                     timeout, timeoutUnit)));
@@ -176,7 +180,7 @@ class ReconnectionHandler {
                 timeoutAction.run();
                 return;
             }
-
+            //向线程池提交超时处理
             reconnectWorkers.submit(timeoutAction);
 
         }, this.timeout, timeoutUnit);
