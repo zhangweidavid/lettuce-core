@@ -35,30 +35,31 @@ import io.lettuce.core.output.StatusOutput;
 import io.lettuce.core.protocol.*;
 
 /**
- * A thread-safe connection to a Redis server. Multiple threads may share one {@link StatefulRedisConnectionImpl}
+ *   线程安全的Redis服务器连接,多线程可以共享一个StatefulRedisConnectionImpl
  *
- * A {@link ConnectionWatchdog} monitors each connection and reconnects automatically until {@link #close} is called. All
- * pending commands will be (re)sent after successful reconnection.
+ *  ConnectionWatchdog监控每个连接，自动重知道close被调用，成功重连后发送所有等待的命令
  *
- * @param <K> Key type.
- * @param <V> Value type.
- * @author Mark Paluch
  */
 public class StatefulRedisConnectionImpl<K, V> extends RedisChannelHandler<K, V> implements StatefulRedisConnection<K, V> {
 
     protected final RedisCodec<K, V> codec;
+    //异步命令
     protected final RedisCommands<K, V> sync;
+    //同步命令
     protected final RedisAsyncCommandsImpl<K, V> async;
+    //响应式命令
     protected final RedisReactiveCommandsImpl<K, V> reactive;
 
     protected MultiOutput<K, V> multi;
     private char[] password;
     private int db;
+    //只读
     private boolean readOnly;
+    //客户端名称
     private String clientName;
 
     /**
-     * Initialize a new connection.
+     * 初始化一个新的连接
      *
      * @param writer the channel writer
      * @param codec Codec used to encode/decode keys and values.
@@ -153,15 +154,17 @@ public class StatefulRedisConnectionImpl<K, V> extends RedisChannelHandler<K, V>
         RedisCommand<K, V, T> toSend = preProcessCommand(command);
 
         try {
-            //通过父类进行派发，父类中对writer为当前类对构造方法对入参
+            //通过RedisChannelHandler派发命令
             return super.dispatch(toSend);
         } finally {
+            //如果命令是MULTI
             if (command.getType().name().equals(MULTI.name())) {
                 multi = (multi == null ? new MultiOutput<>(codec) : multi);
             }
         }
     }
 
+    //派发命令集合
     @Override
     public Collection<RedisCommand<K, V, ?>> dispatch(Collection<? extends RedisCommand<K, V, ?>> commands) {
 
@@ -175,18 +178,20 @@ public class StatefulRedisConnectionImpl<K, V> extends RedisChannelHandler<K, V>
                 multi = (multi == null ? new MultiOutput<>(codec) : multi);
             }
         });
-
+        //RedisChannelHanlder批量派发
         return super.dispatch(sentCommands);
     }
 
+    //预处理
     protected <T> RedisCommand<K, V, T> preProcessCommand(RedisCommand<K, V, T> command) {
 
         RedisCommand<K, V, T> local = command;
-
+        //如果命令是认证命令
         if (local.getType().name().equals(AUTH.name())) {
             local = attachOnComplete(local, status -> {
+                //status是OK
                 if ("OK".equals(status)) {
-
+                    //获取password
                     char[] password = CommandArgsAccessor.getFirstCharArray(command.getArgs());
 
                     if (password != null) {
@@ -252,8 +257,9 @@ public class StatefulRedisConnectionImpl<K, V> extends RedisChannelHandler<K, V>
         return local;
     }
 
+    //向command中添加结束回调
     private <T> RedisCommand<K, V, T> attachOnComplete(RedisCommand<K, V, T> command, Consumer<T> consumer) {
-
+        //如果命令是CompleteableCommand实例则添加回调处理
         if (command instanceof CompleteableCommand) {
             CompleteableCommand<T> completeable = (CompleteableCommand<T>) command;
             completeable.onComplete(consumer);

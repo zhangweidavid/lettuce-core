@@ -73,7 +73,7 @@ public class ConnectionBuilder {
         List<ChannelHandler> handlers = new ArrayList<>();
         //设置clientOptions
         connection.setOptions(clientOptions);
-        //添加channel监听器
+        //添加频道监控，如果频道有效则将频道添加到频道组中，如果频道无效则从频道组中删除
         handlers.add(new ChannelGroupListener(channelGroup));
         //添加命令编码器
         handlers.add(new CommandEncoder());

@@ -21,25 +21,25 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.group.ChannelGroup;
 
 /**
- * A netty {@link ChannelHandler} responsible for monitoring the channel and adding/removing the channel from/to the
- * ChannelGroup.
- *
+ * Netty channelHandler负责监控channel，向频道组中添加一个频道或从频道组中删除一个频道
  * @author Will Glozer
  */
 class ChannelGroupListener extends ChannelInboundHandlerAdapter {
-
+    //频道组
     private ChannelGroup channels;
 
     public ChannelGroupListener(ChannelGroup channels) {
         this.channels = channels;
     }
 
+    //频道有效则将向频道组中添加频道
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         channels.add(ctx.channel());
         super.channelActive(ctx);
     }
 
+    //频道无效的时候从频道组中删除
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         channels.remove(ctx.channel());
