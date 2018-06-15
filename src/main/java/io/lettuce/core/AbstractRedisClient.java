@@ -64,42 +64,48 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
  * @see ClientResources
  */
 public abstract class AbstractRedisClient {
-
+    //池化的ByteBuf分配器
     protected static final PooledByteBufAllocator BUF_ALLOCATOR = PooledByteBufAllocator.DEFAULT;
+
     protected static final InternalLogger logger = InternalLoggerFactory.getInstance(RedisClient.class);
-
+    //对象线程池映射表
     protected final Map<Class<? extends EventLoopGroup>, EventLoopGroup> eventLoopGroups = new ConcurrentHashMap<>(2);
+    //连接事件
     protected final ConnectionEvents connectionEvents = new ConnectionEvents();
+    //可关闭资源
     protected final Set<Closeable> closeableResources = new ConcurrentSet<>();
+    //通用线程池
     protected final EventExecutorGroup genericWorkerPool;
+    //事件轮定时器
     protected final HashedWheelTimer timer;
+    //频道组
     protected final ChannelGroup channels;
+    //客户端资源
     protected final ClientResources clientResources;
-
+    //客户端选项，
     protected volatile ClientOptions clientOptions = ClientOptions.builder().build();
-
+    //超时
     protected Duration timeout = RedisURI.DEFAULT_TIMEOUT_DURATION;
-
+    //是否共享资源，如果使用默认资源就不是共享资源，如果使用用户配置的资源就是共享资源
     private final boolean sharedResources;
+    //是否关闭
     private final AtomicBoolean shutdown = new AtomicBoolean();
 
     /**
-     * Create a new instance with client resources.
-     *
-     * @param clientResources the client resources. If {@literal null}, the client will create a new dedicated instance of
-     *        client resources and keep track of them.
+     * 使用指定的资源创建客户端
      */
     protected AbstractRedisClient(ClientResources clientResources) {
-
+        //如果指定的资源为null则使用默认资源，同时设置是否共享的资源为false
         if (clientResources == null) {
             sharedResources = false;
             this.clientResources = DefaultClientResources.create();
-        } else {
+        } else {//指定的资源不为null则是共享的资源
             sharedResources = true;
             this.clientResources = clientResources;
         }
-
+        //通用的工作线程池是clientResource的eventExecutorGroup
         genericWorkerPool = this.clientResources.eventExecutorGroup();
+        //使用受genericWrokerPool管理的线程池新创建频道组
         channels = new DefaultChannelGroup(genericWorkerPool.next());
         timer = (HashedWheelTimer) this.clientResources.timer();
     }
@@ -227,12 +233,14 @@ public abstract class AbstractRedisClient {
     protected <T> T getConnection(ConnectionFuture<T> connectionFuture) {
 
         try {
+            //获取connection
             return connectionFuture.get();
-        } catch (InterruptedException e) {
+        } catch (InterruptedException e) {//中断异常
+            //中断当前线程
             Thread.currentThread().interrupt();
+            //抛出连接异常
             throw RedisConnectionException.create(connectionFuture.getRemoteAddress(), e);
         } catch (Exception e) {
-
             if (e instanceof ExecutionException) {
                 throw RedisConnectionException.create(connectionFuture.getRemoteAddress(), e.getCause());
             }
@@ -242,7 +250,7 @@ public abstract class AbstractRedisClient {
     }
 
     /**
-     *  连接同时通过connectionBuilder初始化一个通道
+     *  同步处理连接同时通过connectionBuilder初始化一个通道
      */
     @SuppressWarnings("unchecked")
     protected <K, V, T extends RedisChannelHandler<K, V>> ConnectionFuture<T> initializeChannelAsync(
@@ -256,7 +264,7 @@ public abstract class AbstractRedisClient {
         }
 
         logger.debug("Connecting to Redis at {}", redisAddress);
-
+        //频道准备就绪future
         CompletableFuture<Channel> channelReadyFuture = new CompletableFuture<>();
 
         //获取bootstrap
@@ -271,21 +279,25 @@ public abstract class AbstractRedisClient {
         ChannelFuture connectFuture = redisBootstrap.connect(redisAddress);
         //增加监听器
         connectFuture.addListener(future -> {
-
+            //没有成功
             if (!future.isSuccess()) {
 
                 logger.debug("Connecting to Redis at {}: {}", redisAddress, future.cause());
                 connectionBuilder.endpoint().initialState();
+                //通过准备就绪异步结果异常结束
                 channelReadyFuture.completeExceptionally(future.cause());
                 return;
             }
-
+            //completableFuture特性，在future结束的时候执行
             initFuture.whenComplete((success, throwable) -> {
-
+                //如果throwable不为null表示存在异常
                 if (throwable == null) {
                     logger.debug("Connecting to Redis at {}: Success", redisAddress);
+                    //获取RedisChannelHandler
                     RedisChannelHandler<?, ?> connection = connectionBuilder.connection();
+                    //注册可关闭资源，在connection关闭的时候关闭可关闭资源
                     connection.registerCloseables(closeableResources, connection);
+                    //频道准备就绪
                     channelReadyFuture.complete(connectFuture.channel());
                     return;
                 }
@@ -309,7 +321,7 @@ public abstract class AbstractRedisClient {
 
             });
         });
-
+        //针对connectionBuilder.connection()的结果进行装饰，增加获取remoteAddress功能
         return new DefaultConnectionFuture<T>(redisAddress, channelReadyFuture.thenApply(channel -> (T) connectionBuilder
                 .connection()));
     }

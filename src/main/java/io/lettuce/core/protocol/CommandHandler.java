@@ -431,7 +431,7 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
             //可能包装为延迟测量
             RedisCommand<?, ?, ?> redisCommand = potentiallyWrapLatencyCommand(command);
             //如果是空的future则将redisCommand直接添加到stack中； 因为promise.isVoid()=true，是不允许调用addListener
-            if (promise.isVoid()) {
+            if (promise.isVoid()) {//promise 是VoidChannelPromise,Netty异步处理isVoid为true
                 stack.add(redisCommand);
             } else {//如果不是则添加监听器
                 promise.addListener(AddToStack.newInstance(stack, redisCommand));

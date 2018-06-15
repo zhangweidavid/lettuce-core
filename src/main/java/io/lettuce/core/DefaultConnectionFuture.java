@@ -23,9 +23,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * Default {@link CompletableFuture} implementation. Delegates calls to the decorated {@link CompletableFuture} and provides a
- * {@link SocketAddress}.
- *
+ * 继承CompletableFuture实现了ConnectionFuture, 具体操作为委派给delege处理；装饰器模式的具体运用，增强了获取remoteAddress功能
  * @since 4.4
  */
 class DefaultConnectionFuture<T> extends CompletableFuture<T> implements ConnectionFuture<T> {

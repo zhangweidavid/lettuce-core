@@ -152,7 +152,7 @@ public class DefaultClientResources implements ClientResources {
                         computationThreadPoolSize, MIN_COMPUTATION_THREADS);
                 computationThreadPoolSize = MIN_COMPUTATION_THREADS;
             }
-            //创建eventExectorGroup
+            //创建eventExectorGroup，
             eventExecutorGroup = DefaultEventLoopGroupProvider.createEventLoopGroup(DefaultEventExecutorGroup.class,
                     computationThreadPoolSize);
             //不是共享线程池
@@ -240,6 +240,7 @@ public class DefaultClientResources implements ClientResources {
     public static class Builder {
 
         private int ioThreadPoolSize = DEFAULT_IO_THREADS;
+        //计算线程池大小，该值影响到channel线程池大小
         private int computationThreadPoolSize = DEFAULT_COMPUTATION_THREADS;
         private EventExecutorGroup eventExecutorGroup;
         private EventLoopGroupProvider eventLoopGroupProvider;
