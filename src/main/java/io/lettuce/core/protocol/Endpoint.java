@@ -44,15 +44,14 @@ public interface Endpoint {
     void notifyException(Throwable t);
 
     /**
-     * Signal the endpoint to drain queued commands from the queue holder.
+     * 通知终端抛弃所有排队命令
      *
      * @param queuedCommands the queue holder.
      */
     void notifyDrainQueuedCommands(HasQueuedCommands queuedCommands);
 
     /**
-     * Associate a {@link ConnectionWatchdog} with the {@link Endpoint}.
-     *
+     * 将ConnnectionWatchDog和单前终端关联起来
      * @param connectionWatchdog the connection watchdog.
      */
     void registerConnectionWatchdog(ConnectionWatchdog connectionWatchdog);

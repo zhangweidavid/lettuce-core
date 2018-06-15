@@ -50,16 +50,21 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
     private static final AtomicLong ENDPOINT_COUNTER = new AtomicLong();
     private static final AtomicIntegerFieldUpdater<DefaultEndpoint> QUEUE_SIZE = AtomicIntegerFieldUpdater.newUpdater(
             DefaultEndpoint.class, "queueSize");
-
+    //频道，当前终端就是对该频道的包装
     protected volatile Channel channel;
-
+    //可靠性
     private final Reliability reliability;
+    //客户端选项
     private final ClientOptions clientOptions;
+    //断开连接时的命令缓存
     private final Queue<RedisCommand<?, ?, ?>> disconnectedBuffer;
+    //常规批处理时缓存的命令
     private final Queue<RedisCommand<?, ?, ?>> commandBuffer;
+    //是否是有界队列
     private final boolean boundedQueues;
-
+    //终端Id
     private final long endpointId = ENDPOINT_COUNTER.incrementAndGet();
+    //终端是否关闭
     private final AtomicBoolean closed = new AtomicBoolean();
     //共享锁
     private final SharedLock sharedLock = new SharedLock();
@@ -75,6 +80,7 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
     //连接门面
     private ConnectionFacade connectionFacade;
 
+    //命令处理或频道处理中出现异常
     private volatile Throwable connectionError;
 
     // access via QUEUE_SIZE
@@ -89,7 +95,6 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
     public DefaultEndpoint(ClientOptions clientOptions) {
 
         LettuceAssert.notNull(clientOptions, "ClientOptions must not be null");
-
         this.clientOptions = clientOptions;
         //如果设置自动连接，则可靠性选在AT_LEAST_ONCE,否则选在AT_MOST_ONCE
         this.reliability = clientOptions.isAutoReconnect() ? Reliability.AT_LEAST_ONCE : Reliability.AT_MOST_ONCE;
@@ -211,14 +216,15 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
             throw new RedisException("Currently not connected. Commands are rejected.");
         }
     }
-
+    //是否使用了有界队列
     private boolean usesBoundedQueues() {
         return boundedQueues;
     }
-
+    //批量将命令写入缓存
     private void writeToBuffer(Iterable<? extends RedisCommand<?, ?, ?>> commands) {
-
+        //遍历命令
         for (RedisCommand<?, ?, ?> command : commands) {
+            //将单个命令写入缓存
             writeToBuffer(command);
         }
     }
@@ -229,18 +235,20 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
         }
     }
 
+    //将命令写入到断开命令缓存中
     private void writeToDisconnectedBuffer(RedisCommand<?, ?, ?> command) {
-
+          //如果存在连接异常
         if (connectionError != null) {
             if (debugEnabled) {
                 logger.debug("{} writeToDisconnectedBuffer() Completing command {} due to connection error", logPrefix(),
                         command);
             }
+            //命令异常结束
             command.completeExceptionally(connectionError);
-
+            //返回
             return;
         }
-
+        //如果没有存在连接异常 则将命令添加到缓存中
         if (debugEnabled) {
             logger.debug("{} writeToDisconnectedBuffer() buffering (disconnected) command {}", logPrefix(), command);
         }
@@ -253,7 +261,7 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
         if (debugEnabled) {
             logger.debug("{} writeToBuffer() buffering command {}", logPrefix(), command);
         }
-
+        //如果存在连接异常
         if (connectionError != null) {
 
             if (debugEnabled) {
@@ -310,7 +318,7 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
         if (debugEnabled) {
             logger.debug("{} write() channelFlush", logPrefix());
         }
-
+        //刷新频道
         channel.flush();
     }
 
@@ -337,16 +345,18 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
         if (clientOptions == null) {
             return false;
         }
-
+        //获取客户端选项的断开连接行为
         switch (clientOptions.getDisconnectedBehavior()) {
+            //如果是拒绝命令则返回true
             case REJECT_COMMANDS:
                 return true;
-
+            //如果是接收命令则返回false
             case ACCEPT_COMMANDS:
                 return false;
 
             default:
             case DEFAULT:
+                //如果没有配置断开连接行为则根据是否自动连接决定是否返回true
                 if (!clientOptions.isAutoReconnect()) {
                     return true;
                 }
@@ -362,17 +372,18 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
         this.channel = channel;
         this.connectionError = null;
 
+        //如果当前终端已经关闭，在需要关闭频道
         if (isClosed()) {
 
             logger.info("{} Closing channel because endpoint is already closed", logPrefix());
             channel.close();
             return;
         }
-
+        //当前终端没有关闭，且connectionWatchDog不为null,则让connectionWatchDog准备战斗
         if (connectionWatchdog != null) {
             connectionWatchdog.arm();
         }
-        //独占锁执行
+        //独占锁执行，将断开连接期间缓存的命令先发送出去
         sharedLock.doExclusive(() -> {
 
             try {
@@ -409,7 +420,8 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
 
     @Override
     public void notifyChannelInactive(Channel channel) {
-
+           //频道失效
+        //如果终端已经关闭，则取消缓存中的命令
         if (isClosed()) {
             cancelBufferedCommands("Connection closed");
         }
@@ -615,6 +627,7 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
         return sharedLock.doExclusive(supplier);
     }
 
+    //排干缓存中的所有命令
     protected List<RedisCommand<?, ?, ?>> drainCommands() {
 
         List<RedisCommand<?, ?, ?>> target = new ArrayList<>();
@@ -624,7 +637,7 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
 
         return target;
     }
-
+    //排干指定缓存
     private static List<RedisCommand<?, ?, ?>> drainCommands(Queue<? extends RedisCommand<?, ?, ?>> source) {
 
         List<RedisCommand<?, ?, ?>> target = new ArrayList<>(source.size());
@@ -636,11 +649,11 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint {
 
         return target;
     }
-
+    //取消缓存命令
     private void cancelBufferedCommands(String message) {
         cancelCommands(message, doExclusive(this::drainCommands));
     }
-
+    //对指定命令迭代器进行取消，并设置促销消息
     private void cancelCommands(String message, Iterable<? extends RedisCommand<?, ?, ?>> toCancel) {
 
         for (RedisCommand<?, ?, ?> cmd : toCancel) {

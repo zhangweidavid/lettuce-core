@@ -66,6 +66,7 @@ public class ConnectionWatchdog extends ChannelInboundHandlerAdapter {
     //是否同步重连
     private final AtomicBoolean reconnectSchedulerSync;
     private volatile int attempts;
+    //是否准备好
     private volatile boolean armed;
     private volatile boolean listenOnChannelInactive;
     //重连超时时间
@@ -199,10 +200,12 @@ public class ConnectionWatchdog extends ChannelInboundHandlerAdapter {
     }
 
     /**
-     * Enable {@link ConnectionWatchdog} to listen for disconnected events.
+     * 让ConnectionWatchDog开始监听频道失效事件
      */
     void arm() {
+        //已经武装好
         this.armed = true;
+        //开始监听频道失效事件
         setListenOnChannelInactive(true);
     }
 
