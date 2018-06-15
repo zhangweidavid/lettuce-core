@@ -18,15 +18,16 @@ package io.lettuce.core.internal;
 import io.lettuce.core.LettuceStrings;
 
 /**
- * IP端口对象
+ * 主机端口对象
  * @author Mark Paluch
  * @since 4.2
  */
 public class HostAndPort {
 
     private static final int NO_PORT = -1;
-
+    //主机文本
     public final String hostText;
+    //端口号
     public final int port;
 
     /**
@@ -69,7 +70,7 @@ public class HostAndPort {
         LettuceAssert.notNull(hostPortString, "HostPortString must not be null");
         String host;
         String portString = null;
-
+           //如果字符串是以【开头
         if (hostPortString.startsWith("[")) {
             String[] hostAndPort = getHostAndPortFromBracketedHost(hostPortString);
             host = hostAndPort[0];
@@ -186,13 +187,14 @@ public class HostAndPort {
 
         LettuceAssert.isTrue(hostPortString.charAt(0) == '[',
                 String.format("Bracketed host-port string must start with a bracket: %s", hostPortString));
-
+        //获取：索引值
         int colonIndex = hostPortString.indexOf(':');
+        //获取】索引值
         int closeBracketIndex = hostPortString.lastIndexOf(']');
 
         LettuceAssert.isTrue(colonIndex > -1 && closeBracketIndex > colonIndex,
                 String.format("Invalid bracketed host/port: ", hostPortString));
-
+        //获取host
         String host = hostPortString.substring(1, closeBracketIndex);
         if (closeBracketIndex + 1 == hostPortString.length()) {
             return new String[] { host, "" };

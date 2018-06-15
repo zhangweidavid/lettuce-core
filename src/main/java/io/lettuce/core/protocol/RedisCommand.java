@@ -33,64 +33,56 @@ import io.netty.buffer.ByteBuf;
 public interface RedisCommand<K, V, T> {
 
     /**
-     * The command output. Can be null.
+     * 命令的结果输出，可以为null
      *
      * @return the command output.
      */
     CommandOutput<K, V, T> getOutput();
 
     /**
-     * Complete a command.
+     *命令是否处理结束
      */
     void complete();
 
     /**
-     * Cancel a command.
+     * 取消命令
      */
     void cancel();
 
     /**
-     *
-     * @return the current command args
+     * 获取命令参数
      */
     CommandArgs<K, V> getArgs();
 
     /**
      *
-     * @param throwable the exception
-     * @return {@code true} if this invocation caused this CompletableFuture to transition to a completed state, else
-     *         {@code false}
+     *异常结束
      */
     boolean completeExceptionally(Throwable throwable);
 
     /**
-     *
-     * @return the Redis command type like {@literal SADD}, {@literal HMSET}, {@literal QUIT}.
+     * 获取命令关键字
      */
     ProtocolKeyword getType();
 
     /**
-     * Encode the command.
+     * 编码命令
      *
-     * @param buf byte buffer to operate on.
      */
     void encode(ByteBuf buf);
 
     /**
-     *
-     * @return true if the command is cancelled.
+     * 命令是否被取消
      */
     boolean isCancelled();
 
     /**
-     *
-     * @return true if the command is completed.
+     * 命令是否处理完
      */
     boolean isDone();
 
     /**
-     * Set a new output. Only possible as long as the command is not completed/cancelled.
-     *
+     * 设置新的输出
      * @param output the new command output
      * @throws IllegalStateException if the command is cancelled/completed
      */

@@ -62,23 +62,28 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(CommandHandler.class);
     private static final AtomicLong COMMAND_HANDLER_COUNTER = new AtomicLong();
-
+    //客户端选项
     private final ClientOptions clientOptions;
     private final ClientResources clientResources;
+    //终端
     private final Endpoint endpoint;
-
+    //命令队列
     private final ArrayDeque<RedisCommand<?, ?, ?>> stack = new ArrayDeque<>();
+    //命令处理器ID
     private final long commandHandlerId = COMMAND_HANDLER_COUNTER.incrementAndGet();
-
+    //redis状态机
     private final RedisStateMachine rsm = new RedisStateMachine();
     private final boolean traceEnabled = logger.isTraceEnabled();
     private final boolean debugEnabled = logger.isDebugEnabled();
+    //是否可以延迟测量
     private final boolean latencyMetricsEnabled;
+    //是否是有界队列
     private final boolean boundedQueues;
     private final BackpressureSource backpressureSource = new BackpressureSource();
-
+    //频道
     Channel channel;
     private ByteBuf buffer;
+    //生命周期状态
     private LifecycleState lifecycleState = LifecycleState.NOT_CONNECTED;
     private String logPrefix;
     private PristineFallbackCommand fallbackCommand;
@@ -117,13 +122,15 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
 
     @Override
     public Collection<RedisCommand<?, ?, ?>> drainQueue() {
+        //排干当前stack中的所有命令
         return drainCommands(stack);
     }
-
+    //获取CommandHandler生命周期状态
     protected LifecycleState getState() {
         return lifecycleState;
     }
 
+    //当前对象生命周期状态是否是关闭状态
     public boolean isClosed() {
         return lifecycleState == LifecycleState.CLOSED;
     }
@@ -137,16 +144,16 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
         if (isClosed()) {
             logger.debug("{} Dropping register for a closed channel", logPrefix());
         }
-
+        //获取注入的频道
         channel = ctx.channel();
 
         if (debugEnabled) {
             logPrefix = null;
             logger.debug("{} channelRegistered()", logPrefix());
         }
-
+        //设置生命周期状态为注册状态
         setState(LifecycleState.REGISTERED);
-
+        //分配缓存
         buffer = ctx.alloc().directBuffer(8192 * 8);
         ctx.fireChannelRegistered();
     }
@@ -156,7 +163,7 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
      */
     @Override
     public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
-
+        //频道取消注册
         if (debugEnabled) {
             logger.debug("{} channelUnregistered()", logPrefix());
         }
@@ -168,11 +175,13 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
         }
 
         channel = null;
+        //释放buffer
         buffer.release();
-
+        //重置
         reset();
-
+        //设置生命周期状态为close
         setState(LifecycleState.CLOSED);
+        //关闭状态机
         rsm.close();
 
         ctx.fireChannelUnregistered();
@@ -268,6 +277,10 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
         }
     }
 
+    /**
+     * 排干指定队列
+     * @return 队列中所有数据
+     */
     private static <T> List<T> drainCommands(Queue<T> source) {
 
         List<T> target = new ArrayList<>(source.size());
@@ -300,6 +313,7 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
         setState(LifecycleState.DEACTIVATING);
 
         endpoint.notifyChannelInactive(ctx.channel());
+        //排干当前对象中的队列
         endpoint.notifyDrainQueuedCommands(this);
 
         setState(LifecycleState.DEACTIVATED);
@@ -764,24 +778,30 @@ public class CommandHandler extends ChannelDuplexHandler implements HasQueuedCom
     private void reset() {
 
         resetInternals();
+        //取消队列中的所有命令
         cancelCommands("Reset", drainCommands(stack));
     }
-
+    //内部重置
     private void resetInternals() {
-
+        //重置状态机
         rsm.reset();
-
+        //清空buffer
         if (buffer.refCnt() > 0) {
             buffer.clear();
         }
     }
 
+    /**
+     * 按照指定的异常消息取消指定命令集合
+     */
     private static void cancelCommands(String message, List<RedisCommand<?, ?, ?>> toCancel) {
 
         for (RedisCommand<?, ?, ?> cmd : toCancel) {
             if (cmd.getOutput() != null) {
+                //设置错误消息
                 cmd.getOutput().setError(message);
             }
+            //执行取消
             cmd.cancel();
         }
     }

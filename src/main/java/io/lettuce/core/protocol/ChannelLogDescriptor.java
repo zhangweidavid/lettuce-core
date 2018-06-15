@@ -21,17 +21,20 @@ import io.netty.channel.Channel;
  * @author Mark Paluch
  */
 class ChannelLogDescriptor {
-
+    /**
+     * 获取频道日志描述信息
+     */
     static String logDescriptor(Channel channel) {
 
+        //如果频道为null则返回 unknown
         if (channel == null) {
             return "unknown";
         }
 
         StringBuffer buffer = new StringBuffer(64);
-
+        //追加频道ID
         buffer.append("channel=").append(getId(channel)).append(", ");
-
+        //如果本地地址和远程地址不为null则追加地址信息
         if (channel.localAddress() != null && channel.remoteAddress() != null) {
             buffer.append(channel.localAddress()).append(" -> ").append(channel.remoteAddress());
         } else {

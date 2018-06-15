@@ -25,7 +25,7 @@ import static io.lettuce.core.internal.LettuceClassUtils.isPresent;
 public class JavaRuntime {
 
     /**
-     * Constant whether the current JDK is Java 8 or higher.
+     * 判断当前JDK版本最少是JDK8
      */
     public static final boolean AT_LEAST_JDK_8 = isPresent("java.lang.FunctionalInterface");
 

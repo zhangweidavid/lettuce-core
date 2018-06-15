@@ -26,9 +26,7 @@ import java.util.stream.Stream;
 import io.lettuce.core.internal.LettuceAssert;
 
 /**
- * A value container object which may or may not contain a non-null value. If a value is present, {@code isPresent()} will
- * return {@code true} and {@code get()} will return the value.
- *
+ * 一个包含或不包含非null的值的对象容器。如果存在值则isPersent()则返回true,同时get（）返回值
  * <p>
  * Additional methods that depend on the presence or absence of a contained value are provided, such as
  * {@link #getValueOrElse(java.lang.Object) getValueOrElse()} (return a default value if value not present).
@@ -58,27 +56,20 @@ public class Value<V> implements Serializable {
     }
 
     /**
-     * Creates a {@link Value} from an {@link Optional}. The resulting value contains the value from the {@link Optional} if a
-     * value is present. Value is empty if the {@link Optional} is empty.
-     *
-     * @param optional the optional. May be empty but never {@literal null}.
-     * @param <T>
-     * @param <V>
-     * @return the {@link Value}
+     *从Optional对象创建一个Value对象。如果Optional存在值则结果中一个包含这个值，Value是空
      */
     public static <T extends V, V> Value<V> from(Optional<T> optional) {
 
         LettuceAssert.notNull(optional, "Optional must not be null");
-
+        //如果存在值
         if (optional.isPresent()) {
             return new Value<V>(optional.get());
         }
-
+        //如果不存在值则返回empty
         return (Value<V>) EMPTY;
     }
 
     /**
-     * Creates a {@link Value} from a {@code value}. The resulting value contains the value if the {@code value} is not null.
      *
      * @param value the value. May be {@literal null}.
      * @param <T>
