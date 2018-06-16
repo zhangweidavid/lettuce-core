@@ -22,20 +22,18 @@ import io.lettuce.core.protocol.ConnectionFacade;
 import io.lettuce.core.protocol.RedisCommand;
 
 /**
- * Writer for a channel. Writers push commands on to the communication channel and maintain a state for the commands.
- *
+ * 频道写入器，写入器向通信频道推送命令并为之命令的状态
  * @author Mark Paluch
  * @since 3.0
  */
 public interface RedisChannelWriter extends Closeable {
 
     /**
-     * Write a command on the channel. The command may be changed/wrapped during write and the written instance is returned
-     * after the call.
+     * 向频道中写入命令，命令在写入期间可能被改变或包装，在调用之后返回写入实例
      *
-     * @param command the Redis command.
-     * @param <T> result type
-     * @return the written Redis command.
+     * @param command redis命令
+     * @param <T> 返回类型
+     * @return 写入的redis命令
      */
     <K, V, T> RedisCommand<K, V, T> write(RedisCommand<K, V, T> command);
 
@@ -54,8 +52,7 @@ public interface RedisChannelWriter extends Closeable {
     void close();
 
     /**
-     * Reset the writer state. Queued commands will be canceled and the internal state will be reset. This is useful when the
-     * internal state machine gets out of sync with the connection.
+     * 重置写入器状态，排队的命令将被取消同时内部状态将被重置。对于内部状态机异步获异步连接的输出这是很有用的
      */
     void reset();
 

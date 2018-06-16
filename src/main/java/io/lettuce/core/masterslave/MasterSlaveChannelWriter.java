@@ -28,12 +28,11 @@ import io.lettuce.core.protocol.ProtocolKeyword;
 import io.lettuce.core.protocol.RedisCommand;
 
 /**
- * Channel writer/dispatcher that dispatches commands based on the intent to different connections.
- *
+ * 基于意图向不同连接写入或派发命令，该层主要就是一个适配层，通过MasterSlaveConnectionProvider实现了路由选择功能
  * @author Mark Paluch
  */
 class MasterSlaveChannelWriter<K, V> implements RedisChannelWriter {
-
+    //主从连接提供者
     private MasterSlaveConnectionProvider<K, V> masterSlaveConnectionProvider;
     private boolean closed = false;
 
@@ -62,7 +61,7 @@ class MasterSlaveChannelWriter<K, V> implements RedisChannelWriter {
     public <K, V> Collection<RedisCommand<K, V, ?>> write(Collection<? extends RedisCommand<K, V, ?>> commands) {
 
         LettuceAssert.notNull(commands, "Commands must not be null");
-
+        //如果连接已经关闭则抛出异常
         if (closed) {
             throw new RedisException("Connection is closed");
         }
@@ -117,13 +116,13 @@ class MasterSlaveChannelWriter<K, V> implements RedisChannelWriter {
 
     @Override
     public void close() {
-
+        //如果已经关闭则直接返回
         if (closed) {
             return;
         }
-
+        //设置关闭标志为true
         closed = true;
-
+        //如果masterSlaveConnnectionProvdier不为空则需要关闭connectionProvider然后在设置为null
         if (masterSlaveConnectionProvider != null) {
             masterSlaveConnectionProvider.close();
             masterSlaveConnectionProvider = null;

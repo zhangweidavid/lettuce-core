@@ -32,8 +32,9 @@ import io.lettuce.core.codec.RedisCodec;
  */
 @SuppressWarnings("unchecked")
 class ReflectiveNodeConnectionFactory implements NodeConnectionFactory {
-
+    //异步连接方法
     private final Method connectToNodeAsync;
+    //redis客户端
     private final RedisClient client;
 
     protected ReflectiveNodeConnectionFactory(RedisClient client) {
@@ -41,6 +42,7 @@ class ReflectiveNodeConnectionFactory implements NodeConnectionFactory {
         this.client = client;
 
         try {
+            //通过反射获取客户端的中的异步连接单个节点的方法
             connectToNodeAsync = RedisClient.class.getDeclaredMethod("connectStandaloneAsync", RedisCodec.class,
                     RedisURI.class);
             connectToNodeAsync.setAccessible(true);
@@ -53,6 +55,7 @@ class ReflectiveNodeConnectionFactory implements NodeConnectionFactory {
     public <K, V> CompletableFuture<StatefulRedisConnection<K, V>> connectToNodeAsync(RedisCodec<K, V> codec,
             RedisURI redisURI) {
         try {
+            //反射调用
             return (CompletableFuture<StatefulRedisConnection<K, V>>) connectToNodeAsync.invoke(client, codec, redisURI);
         } catch (IllegalAccessException e) {
             throw new IllegalStateException(e);
