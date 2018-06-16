@@ -274,7 +274,7 @@ public class RedisClient extends AbstractRedisClient {
         logger.debug("Trying to get a Redis connection for: " + redisURI);
         //创建DefaultEndpoint
         DefaultEndpoint endpoint = new DefaultEndpoint(clientOptions);
-        //创建connection
+        //创建connection,该connection是一个真正有效的connection其它的都是再次基础上进行增强
         StatefulRedisConnectionImpl<K, V> connection = newStatefulRedisConnection(endpoint, codec, timeout);
         //创建连接
         ConnectionFuture<StatefulRedisConnection<K, V>> future = connectStatefulAsync(connection, endpoint, redisURI,

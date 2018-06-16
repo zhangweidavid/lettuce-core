@@ -78,7 +78,7 @@ public abstract class AbstractRedisClient {
     protected final EventExecutorGroup genericWorkerPool;
     //事件轮定时器
     protected final HashedWheelTimer timer;
-    //频道组
+    //频道组，所有有效到频道都会添加到频道组中
     protected final ChannelGroup channels;
     //客户端资源
     protected final ClientResources clientResources;
@@ -413,6 +413,7 @@ public abstract class AbstractRedisClient {
 
             List<CompletableFuture<Void>> closeFutures = new ArrayList<>();
 
+            //遍历所有频道
             for (Channel c : channels) {
 
                 ChannelPipeline pipeline = c.pipeline();

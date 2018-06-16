@@ -28,6 +28,7 @@ import io.lettuce.core.protocol.RedisCommand;
 
 /**
  * Output of all commands within a MULTI block.
+ * 在MuTI块内输出所有命令
  *
  * @param <K> Key type.
  * @param <V> Value type.
