@@ -90,6 +90,7 @@ class Connections {
         Requests requests = new Requests();
 
         synchronized (this.connections) {
+            //遍历连接
             for (Map.Entry<RedisURI, StatefulRedisConnection<String, String>> entry : this.connections.entrySet()) {
 
                 CommandArgs<String, String> args = new CommandArgs<>(StringCodec.UTF8).add(CommandKeyword.NODES);

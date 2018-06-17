@@ -785,18 +785,20 @@ public class RedisClusterClient extends AbstractRedisClient {
      * @return Partitions
      */
     protected Partitions loadPartitions() {
-        //获取拓扑刷新信息
+        //获取拓扑刷新信息，
         Iterable<RedisURI> topologyRefreshSource = getTopologyRefreshSource();
 
         String message = "Cannot retrieve initial cluster partitions from initial URIs " + topologyRefreshSource;
         try {
+            //加载拓扑信息
             Map<RedisURI, Partitions> partitions = refresh.loadViews(topologyRefreshSource, useDynamicRefreshSources());
-
+            //如果分区信息不为空
             if (partitions.isEmpty()) {
                 throw new RedisException(message);
             }
-
+            //对分区信息进行判决
             Partitions loadedPartitions = determinePartitions(this.partitions, partitions);
+            //获取种子URI
             RedisURI viewedBy = refresh.getViewedBy(partitions, loadedPartitions);
 
             for (RedisClusterNode partition : loadedPartitions) {
@@ -997,12 +999,14 @@ public class RedisClusterClient extends AbstractRedisClient {
      */
     protected Iterable<RedisURI> getTopologyRefreshSource() {
 
+        //是否初始化种子节点
         boolean initialSeedNodes = !useDynamicRefreshSources();
 
         Iterable<RedisURI> seed;
+        //如果需要初始化种子节点或分区信息为null或分区信息为空 则将初始URI赋值给种子
         if (initialSeedNodes || partitions == null || partitions.isEmpty()) {
             seed = RedisClusterClient.this.initialUris;
-        } else {
+        } else {//不需要初始化种子节点
             List<RedisURI> uris = new ArrayList<>();
             for (RedisClusterNode partition : TopologyComparators.sortByUri(partitions)) {
                 uris.add(partition.getUri());
@@ -1023,11 +1027,14 @@ public class RedisClusterClient extends AbstractRedisClient {
      */
     protected boolean useDynamicRefreshSources() {
 
+        //如果集群客户端选项不为null
         if (getClusterClientOptions() != null) {
+            //获取集群拓扑刷新选项
             ClusterTopologyRefreshOptions topologyRefreshOptions = getClusterClientOptions().getTopologyRefreshOptions();
-
+            //返回集群拓扑刷新选项中配置到是否使用动态刷新
             return topologyRefreshOptions.useDynamicRefreshSources();
         }
+        //默认动态刷新
         return true;
     }
 

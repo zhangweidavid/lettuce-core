@@ -62,32 +62,37 @@ public class ClusterTopologyRefresh {
      */
     public Map<RedisURI, Partitions> loadViews(Iterable<RedisURI> seed, boolean discovery) {
 
+        //获取超时时间,默认60秒
         long commandTimeoutNs = getCommandTimeoutNs(seed);
 
         Connections connections = null;
         try {
+            //获取所有种子连接
             connections = getConnections(seed).get(commandTimeoutNs, TimeUnit.NANOSECONDS);
 
             Requests requestedTopology = connections.requestTopology();
             Requests requestedClients = connections.requestClients();
-
+            //获取节点拓扑视图
             NodeTopologyViews nodeSpecificViews = getNodeSpecificViews(requestedTopology, requestedClients, commandTimeoutNs);
 
-            if (discovery) {
-
+            if (discovery) {//是否查找额外节点
+                //获取集群节点
                 Set<RedisURI> allKnownUris = nodeSpecificViews.getClusterNodes();
+                //排除种子节点，得到需要发现节点
                 Set<RedisURI> discoveredNodes = difference(allKnownUris, toSet(seed));
-
+                //如果需要发现节点不为空
                 if (!discoveredNodes.isEmpty()) {
+                    //需要发现节点连接
                     Connections discoveredConnections = getConnections(discoveredNodes).optionalGet(commandTimeoutNs,
                             TimeUnit.NANOSECONDS);
+                    //合并连接
                     connections = connections.mergeWith(discoveredConnections);
-
+                    //合并请求
                     requestedTopology = requestedTopology.mergeWith(discoveredConnections.requestTopology());
                     requestedClients = requestedClients.mergeWith(discoveredConnections.requestClients());
-
+                    //获取节点视图
                     nodeSpecificViews = getNodeSpecificViews(requestedTopology, requestedClients, commandTimeoutNs);
-
+                    //返回uri对应分区信息
                     return nodeSpecificViews.toMap();
                 }
             }
@@ -195,23 +200,27 @@ public class ClusterTopologyRefresh {
     private AsyncConnections getConnections(Iterable<RedisURI> redisURIs) throws InterruptedException {
 
         AsyncConnections connections = new AsyncConnections();
-
+        //遍历所有种子URI
         for (RedisURI redisURI : redisURIs) {
+            //如果种子URI数据有误则忽略
             if (redisURI.getHost() == null || connections.connectedNodes().contains(redisURI)) {
                 continue;
             }
 
             try {
+                //获取种子socketAddress
                 SocketAddress socketAddress = SocketAddressResolver.resolve(redisURI, clientResources.dnsResolver());
 
+                //创建种子节点连接
                 ConnectionFuture<StatefulRedisConnection<String, String>> connectionFuture = nodeConnectionFactory
                         .connectToNodeAsync(CODEC, socketAddress);
 
                 CompletableFuture<StatefulRedisConnection<String, String>> sync = new CompletableFuture<>();
 
+                //当连接处理完成
                 connectionFuture.whenComplete((connection, throwable) -> {
 
-                    if (throwable != null) {
+                    if (throwable != null) {//建立连接异常
 
                         String message = String.format("Unable to connect to %s", socketAddress);
                         if (throwable instanceof RedisConnectionException) {
@@ -225,7 +234,7 @@ public class ClusterTopologyRefresh {
                         }
 
                         sync.completeExceptionally(new RedisConnectionException(message, throwable));
-                    } else {
+                    } else {//建立连接成功
                         connection.async().clientSetname("lettuce#ClusterTopologyRefresh");
                         sync.complete(connection);
                     }

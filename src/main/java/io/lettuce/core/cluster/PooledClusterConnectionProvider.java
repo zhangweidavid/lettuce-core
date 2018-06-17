@@ -75,6 +75,7 @@ class PooledClusterConnectionProvider<K, V> implements ClusterConnectionProvider
         this.redisClusterClient = redisClusterClient;
         this.clusterWriter = clusterWriter;
         this.connectionFactory = new NodeConnectionPostProcessor(getConnectionFactory(redisClusterClient));
+        //使用当前connectionFactory创建连接提供器
         this.connectionProvider = new SynchronizingClusterConnectionProvider<>(this.connectionFactory);
     }
 
@@ -304,7 +305,7 @@ class PooledClusterConnectionProvider<K, V> implements ClusterConnectionProvider
         if (debugEnabled) {
             logger.debug("getConnection(" + intent + ", " + nodeId + ")");
         }
-
+        //从连接提供器中获取connection
         return connectionProvider.getConnection(new ConnectionKey(intent, nodeId));
     }
 
@@ -423,6 +424,7 @@ class PooledClusterConnectionProvider<K, V> implements ClusterConnectionProvider
                 reconfigurePartitions = true;
             }
             this.partitions = partitions;
+            //向connectionFactory设置分区信息
             this.connectionFactory.setPartitions(partitions);
         }
 
@@ -607,8 +609,12 @@ class PooledClusterConnectionProvider<K, V> implements ClusterConnectionProvider
         }
     }
 
+    /**
+     * redis集群节点连接工厂的默认实现
+     */
     static class DefaultClusterNodeConnectionFactory<K, V> extends AbstractClusterNodeConnectionFactory<K, V> {
 
+        //redis集群客户端
         private final RedisClusterClient redisClusterClient;
         private final RedisCodec<K, V> redisCodec;
         private final RedisChannelWriter clusterWriter;

@@ -34,6 +34,7 @@ class ClusterTopologyRefreshScheduler implements Runnable, ClusterEventListener 
     private final RedisClusterClient redisClusterClient;
     private final ClientResources clientResources;
     private final ClusterTopologyRefreshTask clusterTopologyRefreshTask;
+    //超时引用
     private final AtomicReference<Timeout> timeoutRef = new AtomicReference<>();
 
     ClusterTopologyRefreshScheduler(RedisClusterClient redisClusterClient, ClientResources clientResources) {
@@ -64,11 +65,11 @@ class ClusterTopologyRefreshScheduler implements Runnable, ClusterEventListener 
     private void indicateTopologyRefreshSignal() {
 
         logger.debug("ClusterTopologyRefreshScheduler.indicateTopologyRefreshSignal()");
-
+        //如果没有超时则不再刷新
         if (!acquireTimeout()) {
             return;
         }
-
+        //如果线程池有效且集群客户端选项不为null则提交刷新任务
         if (isEventLoopActive() && redisClusterClient.getClusterClientOptions() != null) {
             clientResources.eventExecutorGroup().submit(clusterTopologyRefreshTask);
         } else {
@@ -92,15 +93,15 @@ class ClusterTopologyRefreshScheduler implements Runnable, ClusterEventListener 
     }
 
     private boolean acquireTimeout() {
-
+        //获取已经存在的timeout
         Timeout existingTimeout = timeoutRef.get();
-
+        //如果存在timeout且没有过期则返回false
         if (existingTimeout != null) {
             if (!existingTimeout.isExpired()) {
                 return false;
             }
         }
-
+        //当前引用不存在timeout或timeout已经过期，则根据拓扑刷新选项中配置的刷新超时时间构建timeout并CAS更新到引用
         ClusterTopologyRefreshOptions refreshOptions = getClusterTopologyRefreshOptions();
         Timeout timeout = new Timeout(refreshOptions.getAdaptiveRefreshTimeout());
 
@@ -113,7 +114,7 @@ class ClusterTopologyRefreshScheduler implements Runnable, ClusterEventListener 
 
     @Override
     public void onAskRedirection() {
-
+        //如果配置了ask时刷新集群拓扑则选择刷新拓扑接口信号
         if (isEnabled(ClusterTopologyRefreshOptions.RefreshTrigger.ASK_REDIRECT)) {
             indicateTopologyRefreshSignal();
         }

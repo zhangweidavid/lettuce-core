@@ -27,6 +27,7 @@ import io.lettuce.core.cluster.models.partitions.Partitions;
  * Specialized {@link Function} to obtain connections for Redis Cluster nodes. Connecting to a node returns a
  * {@link CompletableFuture} for asynchronous connection and late synchronization.
  *
+ * 获取Redis集群节点连接都专用工厂方法
  * @author Mark Paluch
  * @since 5.0
  */
@@ -34,20 +35,24 @@ interface ClusterNodeConnectionFactory<K, V> extends
         Function<ClusterNodeConnectionFactory.ConnectionKey, ConnectionFuture<StatefulRedisConnection<K, V>>> {
 
     /**
-     * Set the {@link Partitions}.
      *
+     * 设置分区信息
      * @param partitions
      */
     void setPartitions(Partitions partitions);
 
     /**
-     * Connection to identify a connection either by nodeId or host/port.
+     * 连接key，通过nodeId或主机端口好区分连接
      */
     class ConnectionKey {
 
+        //意图
         final Intent intent;
+        //节点ID
         final String nodeId;
+        //主机
         final String host;
+        //端口
         final int port;
 
         public ConnectionKey(Intent intent, String nodeId) {

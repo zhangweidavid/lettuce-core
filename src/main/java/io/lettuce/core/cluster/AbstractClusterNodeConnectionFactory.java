@@ -69,17 +69,18 @@ abstract class AbstractClusterNodeConnectionFactory<K, V> implements ClusterNode
      * @param connectionKey must not be {@literal null}.
      * @return
      */
+    //根据connetionKey获取socketAddress
     protected Supplier<SocketAddress> getSocketAddressSupplier(ConnectionKey connectionKey) {
 
         return () -> {
-
+            //如果存在nodeId则直接根据nodeId获取socketAddress
             if (connectionKey.nodeId != null) {
 
                 SocketAddress socketAddress = getSocketAddress(connectionKey.nodeId);
                 logger.debug("Resolved SocketAddress {} using for Cluster node {}", socketAddress, connectionKey.nodeId);
                 return socketAddress;
             }
-
+            //没有指定nodeId则根据指定的host和端口号获取socketAddress
             SocketAddress socketAddress = resolve(RedisURI.create(connectionKey.host, connectionKey.port));
             logger.debug("Resolved SocketAddress {} using for Cluster node at {}:{}", socketAddress, connectionKey.host,
                     connectionKey.port);
@@ -95,8 +96,9 @@ abstract class AbstractClusterNodeConnectionFactory<K, V> implements ClusterNode
      * @throws IllegalArgumentException if {@code nodeId} cannot be looked up.
      */
     protected SocketAddress getSocketAddress(String nodeId) {
-
+        //遍历分区信息
         for (RedisClusterNode partition : partitions) {
+            //如果当前nodeId等于指定的nodeId则返回该节点的socketAdress
             if (partition.getNodeId().equals(nodeId)) {
                 return resolve(partition.getUri());
             }

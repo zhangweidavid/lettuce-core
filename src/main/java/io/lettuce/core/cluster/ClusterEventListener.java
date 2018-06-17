@@ -16,12 +16,13 @@
 package io.lettuce.core.cluster;
 
 /**
- * @author Mark Paluch
+ *集群事件监听器
  */
 interface ClusterEventListener {
 
+    //ask是触发
     void onAskRedirection();
-
+    //moved触发
     void onMovedRedirection();
 
     void onReconnection(int attempt);

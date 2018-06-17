@@ -46,8 +46,9 @@ class ClusterDistributionChannelWriter implements RedisChannelWriter {
     private ClusterConnectionProvider clusterConnectionProvider;
     //异步集群连接提供器
     private AsyncClusterConnectionProvider asyncClusterConnectionProvider;
+    //是否关闭
     private boolean closed = false;
-    //分区
+    //分区信息
     private volatile Partitions partitions;
 
     ClusterDistributionChannelWriter(ClientOptions clientOptions, RedisChannelWriter defaultWriter,
@@ -80,21 +81,25 @@ class ClusterDistributionChannelWriter implements RedisChannelWriter {
 
                 HostAndPort target;
                 boolean asking;
+                //如果集群命令已经迁移,此时通过ClusterCommand中到重试操作进行到此
                 if (clusterCommand.isMoved()) {
+                    //获取命令迁移目标节点
                     target = getMoveTarget(clusterCommand.getError());
+                    //触发迁移事件
                     clusterEventListener.onMovedRedirection();
                     asking = false;
                 } else {
                     target = getAskTarget(clusterCommand.getError());
                     asking = true;
+                    //触发asking事件
                     clusterEventListener.onAskRedirection();
                 }
 
                 command.getOutput().setError((String) null);
-
+                //连接迁移后的目标节点
                 CompletableFuture<StatefulRedisConnection<K, V>> connectFuture = asyncClusterConnectionProvider
                         .getConnectionAsync(ClusterConnectionProvider.Intent.WRITE, target.getHostText(), target.getPort());
-
+                //成功建立连接,则向该节点发送命令
                 if (isSuccessfullyCompleted(connectFuture)) {
                     writeCommand(command, asking, connectFuture.join(), null);
                 } else {
@@ -104,7 +109,7 @@ class ClusterDistributionChannelWriter implements RedisChannelWriter {
                 return command;
             }
         }
-        //不是集群命令
+        //不是集群命令就是RedisCommand，第一个请求命令就是非ClusterCommand
          //将当前命令包装为集群命令
         ClusterCommand<K, V, T> commandToSend = getCommandToSend(command);
         //获取命令参数
@@ -112,7 +117,7 @@ class ClusterDistributionChannelWriter implements RedisChannelWriter {
 
         //排除集群路由的cluster命令
         if (args != null && !CommandType.CLIENT.equals(commandToSend.getType())) {
-            //获取编码后的key
+            //获取第一个编码后的key
             ByteBuffer encodedKey = args.getFirstEncodedKey();
             //如果encodedKey不为null
             if (encodedKey != null) {

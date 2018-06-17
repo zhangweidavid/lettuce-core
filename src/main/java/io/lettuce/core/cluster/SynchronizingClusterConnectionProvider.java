@@ -45,10 +45,11 @@ import io.lettuce.core.internal.LettuceAssert;
  * @since 4.4
  */
 class SynchronizingClusterConnectionProvider<K, V> {
-
+    //节点连接工厂
     private final ClusterNodeConnectionFactory<K, V> connectionFactory;
+    //连接缓存
     private final Map<ConnectionKey, Sync<K, V>> connections = new ConcurrentHashMap<>();
-
+    //是否关闭
     private volatile boolean closed;
 
     /**
@@ -95,11 +96,11 @@ class SynchronizingClusterConnectionProvider<K, V> {
      * @throws CompletionException
      */
     private Sync<K, V> getConnectionSync(ConnectionKey key) {
-
+        //如果已经关闭则抛出异常
         if (closed) {
             throw new IllegalStateException("AsyncClusterConnectionProvider is already closed");
         }
-
+        //如果缓存中存在就从缓存中获取，如果不存在就创建一个新对象返回，这个是JDK8 中新增
         Sync<K, V> sync = connections.computeIfAbsent(key, connectionKey -> {
 
             InProgress<K, V> createdSync = new InProgress<>(key, connectionFactory.apply(key), connections);
