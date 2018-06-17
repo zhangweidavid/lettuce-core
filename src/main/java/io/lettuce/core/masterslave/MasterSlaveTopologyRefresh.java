@@ -45,13 +45,17 @@ class MasterSlaveTopologyRefresh {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(MasterSlaveTopologyRefresh.class);
     private static final StringCodec CODEC = StringCodec.UTF8;
 
+    //节点连接工厂
     private final NodeConnectionFactory nodeConnectionFactory;
+    //拓扑提供者
     private final TopologyProvider topologyProvider;
 
+    //根据指定RedisClient和拓扑提供者创建拓扑刷新器，连接工厂为反射连接工厂
     MasterSlaveTopologyRefresh(RedisClient client, TopologyProvider topologyProvider) {
         this(new ReflectiveNodeConnectionFactory(client), topologyProvider);
     }
 
+    //根据指定的节点连接工厂和拓扑提供者创建拓主从拓扑刷新器
     MasterSlaveTopologyRefresh(NodeConnectionFactory nodeConnectionFactory, TopologyProvider topologyProvider) {
 
         this.nodeConnectionFactory = nodeConnectionFactory;
@@ -59,11 +63,7 @@ class MasterSlaveTopologyRefresh {
     }
 
     /**
-     * Load master slave nodes. Result contains an ordered list of {@link RedisNodeDescription}s. The sort key is the latency.
-     * Nodes with lower latency come first.
-     *
-     * @param seed collection of {@link RedisURI}s
-     * @return mapping between {@link RedisURI} and {@link Partitions}
+     * 加载主从节点，结果是一个有序的RedisNodeDescription集合，排序值就是延迟值，延迟最小的节点排在前面
      */
     public List<RedisNodeDescription> getNodes(RedisURI seed) {
 

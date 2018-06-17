@@ -236,7 +236,7 @@ public class MasterSlave {
             MasterSlaveTopologyRefresh refresh = new MasterSlaveTopologyRefresh(redisClient, topologyProvider);
             MasterSlaveConnectionProvider<K, V> connectionProvider = new MasterSlaveConnectionProvider<>(redisClient, codec,
                     redisURI, initialConnections);
-            //获取刷新器中到已知节点
+            //从拓扑刷新器中获取指定URI的节点
             connectionProvider.setKnownNodes(refresh.getNodes(redisURI));
             //创建主备通道写入器
             MasterSlaveChannelWriter<K, V> channelWriter = new MasterSlaveChannelWriter<>(connectionProvider);

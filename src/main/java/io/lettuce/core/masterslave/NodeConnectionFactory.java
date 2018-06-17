@@ -23,8 +23,7 @@ import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.codec.RedisCodec;
 
 /**
- * Factory interface to obtain {@link StatefulRedisConnection connections} to Redis nodes.
- *
+ *  获取指定节点连接的工厂接口
  * @author Mark Paluch
  * @since 4.4
  */
