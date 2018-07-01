@@ -232,6 +232,7 @@ public class RedisClient extends AbstractRedisClient {
     }
 
     /**
+     * 使用RedisCode和Redis URI打开一个新的异步的Redis服务连接
      * Open asynchronously a new connection to a Redis server using the supplied {@link RedisURI} and the supplied
      * {@link RedisCodec codec} to encode/decode keys.
      *
@@ -242,14 +243,18 @@ public class RedisClient extends AbstractRedisClient {
      * @return {@link ConnectionFuture} to indicate success or failure to connect.
      * @since 5.0
      */
+
     public <K, V> ConnectionFuture<StatefulRedisConnection<K, V>> connectAsync(RedisCodec<K, V> codec, RedisURI redisURI) {
 
         assertNotNull(redisURI);
         return connectStandaloneAsync(codec, redisURI, redisURI.getTimeout());
     }
 
+    /**
+     * 获取单机连接
+     */
     private <K, V> StatefulRedisConnection<K, V> connectStandalone(RedisCodec<K, V> codec, RedisURI redisURI, Duration timeout) {
-        //单机异步
+        //单机异步连接
         ConnectionFuture<StatefulRedisConnection<K, V>> future = connectStandaloneAsync(codec, redisURI, timeout);
         //获取连接
         return getConnection(future);
@@ -267,6 +272,7 @@ public class RedisClient extends AbstractRedisClient {
     private <K, V> ConnectionFuture<StatefulRedisConnection<K, V>> connectStandaloneAsync(RedisCodec<K, V> codec,
             RedisURI redisURI, Duration timeout) {
 
+        //编解码器不能为null
         assertNotNull(codec);
         //检查URI是否有效
         checkValidRedisURI(redisURI);
@@ -274,27 +280,28 @@ public class RedisClient extends AbstractRedisClient {
         logger.debug("Trying to get a Redis connection for: " + redisURI);
         //创建DefaultEndpoint
         DefaultEndpoint endpoint = new DefaultEndpoint(clientOptions);
-        //创建connection,该connection是一个真正有效的connection其它的都是再次基础上进行增强
+        //创建connection,该connection是一个真正有效的connection其它的都是再此基础上进行增强
         StatefulRedisConnectionImpl<K, V> connection = newStatefulRedisConnection(endpoint, codec, timeout);
-        //创建连接
+        //异步方式创建连接
         ConnectionFuture<StatefulRedisConnection<K, V>> future = connectStatefulAsync(connection, endpoint, redisURI,
                 () -> new CommandHandler(clientOptions, clientResources, endpoint));
-
+        //注册监听器，在结束时触发
         future.whenComplete((channelHandler, throwable) -> {
-
+            //如果异常不为null则表示连接创建异常，则需要关闭连接
             if (throwable != null) {
                 connection.close();
             }
         });
-
+        //返回
         return future;
     }
 
     @SuppressWarnings("unchecked")
     private <K, V, S> ConnectionFuture<S> connectStatefulAsync(StatefulRedisConnectionImpl<K, V> connection,
             DefaultEndpoint endpoint, RedisURI redisURI, Supplier<CommandHandler> commandHandlerSupplier) {
-        //connetion构造器
+        //connetion构造器，在Lettuce中对于构造器模式运用很多
         ConnectionBuilder connectionBuilder;
+        //根据是否是SSL选择不同构造器
         if (redisURI.isSsl()) {
             SslConnectionBuilder sslConnectionBuilder = SslConnectionBuilder.sslConnectionBuilder();
             sslConnectionBuilder.ssl(redisURI);
@@ -310,11 +317,11 @@ public class RedisClient extends AbstractRedisClient {
         connectionBuilder.clientResources(clientResources);
         //设置命令处理器以及endpoint
         connectionBuilder.commandHandler(commandHandlerSupplier).endpoint(endpoint);
-        //填充连接构造器
+        //填充连接构造器，
         connectionBuilder(getSocketAddressSupplier(redisURI), connectionBuilder, redisURI);
-        //设置通道类型
+        //设置频道类型，同时根据频道类型设置客户端NIO线程组
         channelType(connectionBuilder, redisURI);
-
+         //在连接生效前是否需要ping
         if (clientOptions.isPingBeforeActivateConnection()) {
             if (hasPassword(redisURI)) {
                 connectionBuilder.enableAuthPingBeforeConnect();

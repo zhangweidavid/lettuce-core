@@ -124,11 +124,11 @@ class PlainChannelInitializer extends io.netty.channel.ChannelInitializer<Channe
                 }
             });
         }
-        //将hanler提供器提供的处理器添加到channel中
+        //将hanler提供器提供的的处理器添加到该频道的管道中
         for (ChannelHandler handler : handlers.get()) {
             channel.pipeline().addLast(handler);
         }
-
+        //扩展点，用户可以对向pipline中添加自定义的channel
         clientResources.nettyCustomizer().afterChannelInitialized(channel);
     }
 

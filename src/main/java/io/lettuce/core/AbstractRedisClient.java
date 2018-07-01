@@ -152,8 +152,9 @@ public abstract class AbstractRedisClient {
         //设置channel选项
         redisBootstrap.option(ChannelOption.WRITE_BUFFER_HIGH_WATER_MARK, 32 * 1024);
         redisBootstrap.option(ChannelOption.WRITE_BUFFER_LOW_WATER_MARK, 8 * 1024);
-        redisBootstrap.option(ChannelOption.ALLOCATOR, BUF_ALLOCATOR);
 
+        redisBootstrap.option(ChannelOption.ALLOCATOR, BUF_ALLOCATOR);
+        //获取套接字选项
         SocketOptions socketOptions = getOptions().getSocketOptions();
         //设置连接超时时间
         redisBootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS,
@@ -178,7 +179,7 @@ public abstract class AbstractRedisClient {
     protected void channelType(ConnectionBuilder connectionBuilder, ConnectionPoint connectionPoint) {
 
         LettuceAssert.notNull(connectionPoint, "ConnectionPoint must not be null");
-
+        //设置客户端线程组，EventLoopGroup用来处理所有频道事件
         connectionBuilder.bootstrap().group(getEventLoopGroup(connectionPoint));
 
         if (connectionPoint.getSocket() != null) {
@@ -191,11 +192,12 @@ public abstract class AbstractRedisClient {
 
     private synchronized EventLoopGroup getEventLoopGroup(ConnectionPoint connectionPoint) {
 
+        //如果connectionPoint中的套接字不为null同时eventLoopGroups中不存在传输类型则创建一个新的eventLoopGroup
         if (connectionPoint.getSocket() == null && !eventLoopGroups.containsKey(Transports.eventLoopGroupClass())) {
             eventLoopGroups.put(Transports.eventLoopGroupClass(),
                     clientResources.eventLoopGroupProvider().allocate(Transports.eventLoopGroupClass()));
         }
-
+        //如果套接字不为null
         if (connectionPoint.getSocket() != null) {
 
             NativeTransports.assertAvailable();
@@ -250,7 +252,7 @@ public abstract class AbstractRedisClient {
     }
 
     /**
-     *  同步处理连接同时通过connectionBuilder初始化一个通道
+     *  异步处理连接同时通过connectionBuilder初始化一个通道
      */
     @SuppressWarnings("unchecked")
     protected <K, V, T extends RedisChannelHandler<K, V>> ConnectionFuture<T> initializeChannelAsync(
@@ -276,6 +278,7 @@ public abstract class AbstractRedisClient {
         //netty自定设置处理
         clientResources.nettyCustomizer().afterBootstrapInitialized(redisBootstrap);
         CompletableFuture<Boolean> initFuture = initializer.channelInitialized();
+        //连接Redis服务器，在该处才是真正和服务器创建连接
         ChannelFuture connectFuture = redisBootstrap.connect(redisAddress);
         //增加监听器
         connectFuture.addListener(future -> {

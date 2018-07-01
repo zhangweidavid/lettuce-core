@@ -268,21 +268,23 @@ public class RedisAdvancedClusterAsyncCommandsImpl<K, V> extends AbstractRedisAs
 
     @Override
     public RedisFuture<List<KeyValue<K, V>>> mget(Iterable<K> keys) {
+        //获取分区和key的映射关系
         Map<Integer, List<K>> partitioned = SlotHash.partition(codec, keys);
-
+        //如果分区数小于2也就是只有一个分区即所有key都落在一个分区就直接获取
         if (partitioned.size() < 2) {
             return super.mget(keys);
         }
-
+        //每个key与slot映射关系
         Map<K, Integer> slots = SlotHash.getSlots(partitioned);
-        Map<Integer, RedisFuture<List<KeyValue<K, V>>>> executions = new HashMap<>();
 
+        Map<Integer, RedisFuture<List<KeyValue<K, V>>>> executions = new HashMap<>();
+        //遍历分片信息，逐个发送
         for (Map.Entry<Integer, List<K>> entry : partitioned.entrySet()) {
             RedisFuture<List<KeyValue<K, V>>> mget = super.mget(entry.getValue());
             executions.put(entry.getKey(), mget);
         }
 
-        // restore order of key
+        //恢复key的顺序
         return new PipelinedRedisFuture<>(executions, objectPipelinedRedisFuture -> {
             List<KeyValue<K, V>> result = new ArrayList<>();
             for (K opKey : keys) {

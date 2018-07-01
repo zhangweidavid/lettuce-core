@@ -152,9 +152,14 @@ public abstract class AbstractInvocationHandler implements InvocationHandler {
                         proxyClass.getInterfaces()));
     }
 
+    /**
+     * 方法翻译器
+     */
     protected static class MethodTranslator {
 
         private final static WeakHashMap<Class<?>, MethodTranslator> TRANSLATOR_MAP = new WeakHashMap<>(32);
+
+        //真实方法和代理类中方法映射表
         private final Map<Method, Method> map;
 
         private MethodTranslator(Class<?> delegate, Class<?>... methodSources) {
@@ -162,9 +167,13 @@ public abstract class AbstractInvocationHandler implements InvocationHandler {
             map = createMethodMap(delegate, methodSources);
         }
 
+        /**
+         * 通过指定代理类，和目标类创建方法翻译器
+         */
         public static MethodTranslator of(Class<?> delegate, Class<?>... methodSources) {
-
+            //同步代码块
             synchronized (TRANSLATOR_MAP) {
+                //如果翻译器映射表中不存在delegate的翻译器则创建一个新的
                 return TRANSLATOR_MAP.computeIfAbsent(delegate, key -> new MethodTranslator(key, methodSources));
             }
         }
@@ -173,12 +182,14 @@ public abstract class AbstractInvocationHandler implements InvocationHandler {
 
             Map<Method, Method> map;
             List<Method> methods = new ArrayList<>();
+            //遍历源类，找到所有public方法
             for (Class<?> sourceClass : methodSources) {
                 methods.addAll(getMethods(sourceClass));
             }
 
             map = new HashMap<>(methods.size(), 1.0f);
 
+            //创建方法和代理类的方法的映射表
             for (Method method : methods) {
 
                 try {
@@ -188,24 +199,27 @@ public abstract class AbstractInvocationHandler implements InvocationHandler {
             }
             return map;
         }
-
+       //获取目标方法中的所有方法
         private Collection<? extends Method> getMethods(Class<?> sourceClass) {
 
+            //目标方法集合
             Set<Method> result = new HashSet<>();
 
             Class<?> searchType = sourceClass;
             while (searchType != null && searchType != Object.class) {
-
+                 //将目标类中所有public方法添加到集合中
                 result.addAll(filterPublicMethods(Arrays.asList(sourceClass.getDeclaredMethods())));
-
+                //如果souceClass是接口类型
                 if (sourceClass.isInterface()) {
+                    //获取souceClass的所有接口
                     Class<?>[] interfaces = sourceClass.getInterfaces();
+                    //遍历接口，将接口的public方法也添加到方法集合中
                     for (Class<?> interfaceClass : interfaces) {
                         result.addAll(getMethods(interfaceClass));
                     }
 
                     searchType = null;
-                } else {
+                } else {//如果不是接口则查找父类
 
                     searchType = searchType.getSuperclass();
                 }
@@ -214,6 +228,7 @@ public abstract class AbstractInvocationHandler implements InvocationHandler {
             return result;
         }
 
+        //获取给定方法集合中所有public方法
         private Collection<? extends Method> filterPublicMethods(List<Method> methods) {
             List<Method> result = new ArrayList<>(methods.size());
 
@@ -227,8 +242,9 @@ public abstract class AbstractInvocationHandler implements InvocationHandler {
         }
 
         public Method get(Method key) {
-
+           //从方法映射表中获取目标方法
             Method result = map.get(key);
+            //如果目标方法不为null则返回,否则抛出异常
             if (result != null) {
                 return result;
             }

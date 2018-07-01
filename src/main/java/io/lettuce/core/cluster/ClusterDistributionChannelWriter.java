@@ -212,13 +212,14 @@ class ClusterDistributionChannelWriter implements RedisChannelWriter {
         if (closed) {
             throw new RedisException("Connection is closed");
         }
-
+        //集群命令集合
         List<ClusterCommand<K, V, ?>> clusterCommands = new ArrayList<>(commands.size());
+        //默认命令集合
         List<ClusterCommand<K, V, ?>> defaultCommands = new ArrayList<>(commands.size());
+        //命令分区映射关系
         Map<SlotIntent, List<ClusterCommand<K, V, ?>>> partitions = new HashMap<>();
 
-        // TODO: Retain order or retain Intent preference?
-        // Currently: Retain order
+        //获取当前集合意图
         Intent intent = getIntent(commands);
 
         //遍历命令
@@ -228,21 +229,26 @@ class ClusterDistributionChannelWriter implements RedisChannelWriter {
                 clusterCommands.add((ClusterCommand) cmd);
                 continue;
             }
-            //如果不是集群民营
+            //如果不是集群命令
+            //获取命令参数
             CommandArgs<K, V> args = cmd.getArgs();
+            //如果参数不为null则获取第一个key的编码
             ByteBuffer firstEncodedKey = args != null ? args.getFirstEncodedKey() : null;
 
-            //如果第一个编码key为null则添加到默认命令集合中
+            //如果第一个编码key为null则添加到默认命令集合中，此时命令一般都是管理命令
             if (firstEncodedKey == null) {
+                //构建集群命令并添加到默认命令集合中
                 defaultCommands.add(new ClusterCommand<>(cmd, this, executionLimit));
                 continue;
             }
+            //存在key且不是集群命令
 
+            //获取key的slot
             int hash = getSlot(args.getFirstEncodedKey());
 
+            //如果映射表中不存在则添加到映射表中
             List<ClusterCommand<K, V, ?>> commandPartition = partitions.computeIfAbsent(SlotIntent.of(intent, hash),
                     slotIntent -> new ArrayList<>());
-
             commandPartition.add(new ClusterCommand<>(cmd, this, executionLimit));
         }
         //遍历所有分区
@@ -250,7 +256,7 @@ class ClusterDistributionChannelWriter implements RedisChannelWriter {
 
             //获取每个分区到slotIntent
             SlotIntent slotIntent = entry.getKey();
-            //根据slotIntent获取channelHandler
+            //根据意图和slot获取连接
             RedisChannelHandler<K, V> connection = (RedisChannelHandler<K, V>) clusterConnectionProvider.getConnection(
                     slotIntent.intent, slotIntent.slotHash);
             //获取writer
@@ -259,7 +265,7 @@ class ClusterDistributionChannelWriter implements RedisChannelWriter {
                 ClusterDistributionChannelWriter writer = (ClusterDistributionChannelWriter) channelWriter;
                 channelWriter = writer.defaultWriter;
             }
-
+            //如果channelWriter不为null且channelWriter不是当前writer也不是默认writer则写入命名集
             if (channelWriter != null && channelWriter != this && channelWriter != defaultWriter) {
                 channelWriter.write(entry.getValue());
             }
@@ -288,11 +294,11 @@ class ClusterDistributionChannelWriter implements RedisChannelWriter {
         Intent singleIntent = Intent.WRITE;
 
         for (RedisCommand<?, ?, ?> command : commands) {
-
+            //忽略集合命令
             if (command instanceof ClusterCommand) {
                 continue;
             }
-
+            //获取当前命令意图赋值给singleIntent
             singleIntent = getIntent(command.getType());
             if (singleIntent == Intent.READ) {
                 r = true;
@@ -301,12 +307,12 @@ class ClusterDistributionChannelWriter implements RedisChannelWriter {
             if (singleIntent == Intent.WRITE) {
                 w = true;
             }
-
+            //如果同时存在读写命令就返回意图为写
             if (r && w) {
                 return Intent.WRITE;
             }
         }
-
+        //当前意图，如果都是读则返回读意图，如果存在写则返回写意图
         return singleIntent;
     }
 

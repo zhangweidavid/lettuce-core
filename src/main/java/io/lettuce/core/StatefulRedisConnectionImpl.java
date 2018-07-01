@@ -60,21 +60,17 @@ public class StatefulRedisConnectionImpl<K, V> extends RedisChannelHandler<K, V>
 
     /**
      * 初始化一个新的连接
-     *
-     * @param writer the channel writer
-     * @param codec Codec used to encode/decode keys and values.
-     * @param timeout Maximum time to wait for a response.
      */
     public StatefulRedisConnectionImpl(RedisChannelWriter writer, RedisCodec<K, V> codec, Duration timeout) {
 
         super(writer, timeout);
 
         this.codec = codec;
-        //创建异步步连接
+        //创建异步redis命令处理模式
         this.async = newRedisAsyncCommandsImpl();
-        //创建同步连接
+        //创建redis命令同步处理模式
         this.sync = newRedisSyncCommandsImpl();
-        //创建响应式连接
+        //创建redis命令响应式处理模式
         this.reactive = newRedisReactiveCommandsImpl();
     }
 
